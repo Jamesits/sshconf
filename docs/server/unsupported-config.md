@@ -6,53 +6,6 @@ from `golang.org/x/crypto/ssh`. Unless noted otherwise, affected directives
 are silently accepted — the resolved `Options` value carries them for
 inspection, but the runtime behavior matches OpenSSH defaults instead.
 
-## Algorithms Not Supported by `golang.org/x/crypto/ssh`
-
-The same gaps apply here as on the client side: algorithms listed in these
-tables are filtered out of the resolved list before it reaches the SSH
-handshake. Clients offering only filtered algorithms will fail to connect.
-
-### Key Exchange
-
-| Algorithm | Notes |
-|---|---|
-| `sntrup761x25519-sha512` | Hybrid post-quantum (NTRU Prime) |
-| `sntrup761x25519-sha512@openssh.com` | OpenSSH-specific name |
-| `curve25519-sha256@libssh.org` | Alias for `curve25519-sha256` |
-| `diffie-hellman-group18-sha512` | DH group 18 |
-| `diffie-hellman-group-exchange-sha1` | SHA-1 group exchange |
-| `diffie-hellman-group14-sha1` | SHA-1 variant |
-| `diffie-hellman-group1-sha1` | Legacy |
-
-### Ciphers
-
-| Algorithm | Notes |
-|---|---|
-| `aes192-cbc` | AES-192 in CBC mode |
-| `aes256-cbc` | AES-256 in CBC mode |
-| `3des-cbc` | Legacy |
-
-### MACs
-
-| Algorithm | Notes |
-|---|---|
-| `umac-64-etm@openssh.com` | UMAC-64 encrypt-then-MAC |
-| `umac-128-etm@openssh.com` | UMAC-128 encrypt-then-MAC |
-| `hmac-sha1-etm@openssh.com` | HMAC-SHA1 encrypt-then-MAC |
-| `umac-64@openssh.com` | UMAC-64 |
-| `umac-128@openssh.com` | UMAC-128 |
-| `hmac-md5`, `hmac-md5-96`, `hmac-md5-etm@openssh.com`, `hmac-md5-96-etm@openssh.com` | MD5 variants |
-
-### Host Key Algorithms
-
-| Algorithm | Notes |
-|---|---|
-| `sk-ssh-ed25519@openssh.com` | FIDO/U2F security key (Ed25519) |
-| `sk-ecdsa-sha2-nistp256@openssh.com` | FIDO/U2F security key (ECDSA) |
-| `sk-ssh-ed25519-cert-v01@openssh.com` | Certificate variant |
-| `sk-ecdsa-sha2-nistp256-cert-v01@openssh.com` | Certificate variant |
-| `webauthn-sk-ecdsa-sha2-nistp256*` | WebAuthn variants |
-
 ## Directives Parsed But Not Enforced
 
 The parser accepts these keywords and stores them on `Options`, but
