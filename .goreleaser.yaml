@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+
+project_name: sshconf
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - &build-defaults
+    skip: true
+    id: build-defaults
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      # - -X github.com/jamesits/sshconf/pkg/version.Version={{.Version}}
+      # - -X github.com/jamesits/sshconf/pkg/version.Commit={{.Commit}}
+      # - -X github.com/jamesits/sshconf/pkg/version.Date={{.Date}}
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+  - <<: *build-defaults
+    skip: false
+    id: ssh
+    main: ./cmd/ssh
+    binary: ssh
+
+  - <<: *build-defaults
+    skip: false
+    id: ssh-add
+    main: ./cmd/ssh-add
+    binary: ssh-add
+
+  - <<: *build-defaults
+    skip: false
+    id: ssh-agent
+    main: ./cmd/ssh-agent
+    binary: ssh-agent
+
+  - <<: *build-defaults
+    skip: false
+    id: ssh-copy-id
+    main: ./cmd/ssh-copy-id
+    binary: ssh-copy-id
+
+  - <<: *build-defaults
+    skip: false
+    id: ssh-keygen
+    main: ./cmd/ssh-keygen
+    binary: ssh-keygen
+
+  - <<: *build-defaults
+    skip: false
+    id: ssh-keyscan
+    main: ./cmd/ssh-keyscan
+    binary: ssh-keyscan
+
+  - <<: *build-defaults
+    skip: false
+    id: sshd
+    main: ./cmd/sshd
+    binary: sshd
+
+archives:
+  - id: sshconf
+    ids:
+      - ssh
+      - ssh-add
+      - ssh-agent
+      - ssh-copy-id
+      - ssh-keygen
+      - ssh-keyscan
+      - sshd
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+nfpms:
+  - id: sshconf
+    package_name: sshconf
+    description: OpenSSH drop-in replacement.
+    vendor: 'Jamesits'
+    maintainer: 'Jamesits <osscontrib@ciexyz.net>'
+    homepage: 'https://github.com/Jamesits/sshconf'
+    license: MIT
+    formats:
+      - apk
+      - deb
+      - rpm
+      - archlinux
+    dependencies:
+      - bubblewrap
+      - fuse
+    ids:
+      - sshconf
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  draft: false
+  prerelease: auto
