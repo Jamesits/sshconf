@@ -347,7 +347,7 @@ func expandPathTokens(opts *Options, ctx *sshconfig.TokenContext, homeDir string
 
 // expandPathList expands tilde in each space-separated path.
 func expandPathList(paths string, homeDir string) string {
-	fields := splitFields(paths)
+	fields := sshconfig.SplitFields(paths)
 	for i := range fields {
 		fields[i] = sshconfig.ExpandTilde(fields[i], homeDir)
 	}
@@ -359,25 +359,6 @@ func expandPathList(paths string, homeDir string) string {
 		result += f
 	}
 	return result
-}
-
-func splitFields(s string) []string {
-	var fields []string
-	var current []byte
-	for i := 0; i < len(s); i++ {
-		if s[i] == ' ' || s[i] == '\t' {
-			if len(current) > 0 {
-				fields = append(fields, string(current))
-				current = current[:0]
-			}
-		} else {
-			current = append(current, s[i])
-		}
-	}
-	if len(current) > 0 {
-		fields = append(fields, string(current))
-	}
-	return fields
 }
 
 // mergeOptions copies values from src into dst where dst fields are nil.

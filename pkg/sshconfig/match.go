@@ -60,6 +60,21 @@ func (c *MatchLocalNetworkCondition) Match(ctx *MatchContext) bool {
 }
 
 func (c *MatchFieldCondition) Match(ctx *MatchContext) bool {
+	// Group matches if any group in ctx.Groups matches the pattern list.
+	if c.Field == MatchFieldGroup {
+		matched := false
+		for _, g := range ctx.Groups {
+			if MatchPatternList(c.Patterns, g) {
+				matched = true
+				break
+			}
+		}
+		if c.Negated {
+			return !matched
+		}
+		return matched
+	}
+
 	var value string
 	switch c.Field {
 	case MatchFieldHost:
@@ -78,6 +93,10 @@ func (c *MatchFieldCondition) Match(ctx *MatchContext) bool {
 		value = ctx.Version
 	case MatchFieldSessionType:
 		value = ctx.SessionType
+	case MatchFieldLocalPort:
+		value = ctx.LocalPort
+	case MatchFieldRDomain:
+		value = ctx.RDomain
 	default:
 		return false
 	}
@@ -87,6 +106,63 @@ func (c *MatchFieldCondition) Match(ctx *MatchContext) bool {
 		return !result
 	}
 	return result
+}
+
+// Match evaluates an address condition: each comma-separated pattern is
+// tried as either a CIDR range (if it contains '/') or an SSH glob. A
+// positive match on any pattern returns true; a match on a negated pattern
+// returns false.
+func (c *MatchAddressCondition) Match(ctx *MatchContext) bool {
+	var (
+		ipStr string
+		ip    net.IP
+	)
+	switch c.Field {
+	case MatchAddressRemote:
+		ipStr, ip = ctx.RemoteAddr, ctx.RemoteAddrIP
+	case MatchAddressLocal:
+		ipStr, ip = ctx.LocalAddr, ctx.LocalAddrIP
+	default:
+		return false
+	}
+
+	matched := false
+	for _, rawPattern := range strings.Split(c.Patterns, ",") {
+		pattern := strings.TrimSpace(rawPattern)
+		if pattern == "" {
+			continue
+		}
+		negated := false
+		if pattern[0] == '!' {
+			negated = true
+			pattern = pattern[1:]
+		}
+
+		var ok bool
+		if strings.Contains(pattern, "/") && ip != nil {
+			if _, cidr, err := net.ParseCIDR(pattern); err == nil {
+				ok = cidr.Contains(ip)
+			}
+		} else {
+			ok = MatchPattern(pattern, ipStr)
+		}
+
+		if ok {
+			if negated {
+				return false
+			}
+			matched = true
+		}
+	}
+	if c.Negated {
+		return !matched
+	}
+	return matched
+}
+
+// Match for an "Invalid-User" criteria simply returns ctx.InvalidUser.
+func (c *MatchInvalidUserCondition) Match(ctx *MatchContext) bool {
+	return ctx.InvalidUser
 }
 
 // EvaluateConditions checks whether all conditions in a slice match the context.
@@ -123,6 +199,11 @@ func ParseHostPatterns(args string) []HostPattern {
 
 // ParseMatchCriteria parses the arguments of a Match directive into a list
 // of conditions. Returns the conditions and any error encountered.
+//
+// Supported keywords include both ssh_config and sshd_config criteria:
+// all, canonical, final, exec, localnetwork, host, originalhost, user,
+// localuser, tagged, command, version, sessiontype, group, localport,
+// rdomain, localaddress, address, invalid-user.
 func ParseMatchCriteria(args string) ([]Condition, error) {
 	tokens := tokenizeMatchArgs(args)
 	var conditions []Condition
@@ -142,6 +223,9 @@ func ParseMatchCriteria(args string) ([]Condition, error) {
 		case "final":
 			conditions = append(conditions, &MatchFinalCondition{})
 
+		case "invalid-user":
+			conditions = append(conditions, &MatchInvalidUserCondition{})
+
 		case "exec":
 			if i >= len(tokens) {
 				return nil, &ParseError{Msg: "Match exec requires an argument"}
@@ -157,19 +241,38 @@ func ParseMatchCriteria(args string) ([]Condition, error) {
 			conditions = append(conditions, &MatchLocalNetworkCondition{Networks: networks})
 			i++
 
-		case "host", "originalhost", "user", "localuser", "tagged", "command", "version", "sessiontype":
+		case "address":
+			if i >= len(tokens) {
+				return nil, &ParseError{Msg: "Match address requires an argument"}
+			}
+			conditions = append(conditions, &MatchAddressCondition{
+				Field:    MatchAddressRemote,
+				Patterns: tokens[i],
+			})
+			i++
+
+		case "localaddress":
+			if i >= len(tokens) {
+				return nil, &ParseError{Msg: "Match localaddress requires an argument"}
+			}
+			conditions = append(conditions, &MatchAddressCondition{
+				Field:    MatchAddressLocal,
+				Patterns: tokens[i],
+			})
+			i++
+
+		case "host", "originalhost", "user", "localuser", "tagged", "command",
+			"version", "sessiontype", "group", "localport", "rdomain":
 			if i >= len(tokens) {
 				return nil, &ParseError{Msg: "Match " + keyword + " requires an argument"}
 			}
-			negated := false
 			arg := tokens[i]
 			i++
-
 			field := matchFieldFromKeyword(keyword)
 			conditions = append(conditions, &MatchFieldCondition{
 				Field:    field,
 				Patterns: arg,
-				Negated:  negated,
+				Negated:  false,
 			})
 
 		default:
@@ -177,13 +280,38 @@ func ParseMatchCriteria(args string) ([]Condition, error) {
 			if strings.HasPrefix(keyword, "!") {
 				actual := keyword[1:]
 				switch actual {
-				case "host", "originalhost", "user", "localuser", "tagged", "command", "version", "sessiontype":
+				case "host", "originalhost", "user", "localuser", "tagged", "command",
+					"version", "sessiontype", "group", "localport", "rdomain":
 					if i >= len(tokens) {
 						return nil, &ParseError{Msg: "Match " + keyword + " requires an argument"}
 					}
 					field := matchFieldFromKeyword(actual)
 					conditions = append(conditions, &MatchFieldCondition{
 						Field:    field,
+						Patterns: tokens[i],
+						Negated:  true,
+					})
+					i++
+					continue
+
+				case "address":
+					if i >= len(tokens) {
+						return nil, &ParseError{Msg: "Match !address requires an argument"}
+					}
+					conditions = append(conditions, &MatchAddressCondition{
+						Field:    MatchAddressRemote,
+						Patterns: tokens[i],
+						Negated:  true,
+					})
+					i++
+					continue
+
+				case "localaddress":
+					if i >= len(tokens) {
+						return nil, &ParseError{Msg: "Match !localaddress requires an argument"}
+					}
+					conditions = append(conditions, &MatchAddressCondition{
+						Field:    MatchAddressLocal,
 						Patterns: tokens[i],
 						Negated:  true,
 					})
@@ -242,6 +370,12 @@ func matchFieldFromKeyword(keyword string) MatchField {
 		return MatchFieldVersion
 	case "sessiontype":
 		return MatchFieldSessionType
+	case "group":
+		return MatchFieldGroup
+	case "localport":
+		return MatchFieldLocalPort
+	case "rdomain":
+		return MatchFieldRDomain
 	default:
 		return MatchFieldHost
 	}

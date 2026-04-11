@@ -30,13 +30,16 @@ type Entry struct {
 }
 
 // MatchContext provides all values needed for evaluating Host/Match conditions.
-// The caller populates this before resolving configuration.
+// The caller populates this before resolving configuration. Fields are shared
+// between client (ssh_config) and server (sshd_config) resolution; not every
+// field is meaningful in both contexts.
 type MatchContext struct {
 	// User is the target remote username (after User directive resolution).
 	User string
 	// Host is the target hostname (after Hostname directive resolution).
+	// In server contexts this carries the DNS-resolved client hostname.
 	Host string
-	// OriginalHost is the hostname as given on the command line.
+	// OriginalHost is the hostname as given on the command line (client only).
 	OriginalHost string
 	// LocalUser is the name of the local user running the client.
 	LocalUser string
@@ -46,10 +49,29 @@ type MatchContext struct {
 	Command string
 	// Tag is the tag set by a prior Tag directive or -P flag.
 	Tag string
-	// Version is the client version string for Match version.
+	// Version is the client or server version string for Match version.
 	Version string
 	// SessionType is one of "shell", "exec", "subsystem", or "none".
 	SessionType string
+
+	// --- Server-side (sshd_config Match) fields ---
+
+	// Groups holds the groups of the authenticating user (Match group).
+	Groups []string
+	// RemoteAddr is the client address as a string, used for "Match address".
+	RemoteAddr string
+	// RemoteAddrIP is the client address parsed for CIDR matching.
+	RemoteAddrIP net.IP
+	// LocalAddr is the address the server is bound to for this connection.
+	LocalAddr string
+	// LocalAddrIP is LocalAddr parsed for CIDR matching.
+	LocalAddrIP net.IP
+	// LocalPort is the server-side TCP port as a string.
+	LocalPort string
+	// RDomain is the routing domain on which the connection was received.
+	RDomain string
+	// InvalidUser is true when the authenticating user is not a known account.
+	InvalidUser bool
 
 	// ExecFunc is called to evaluate "Match exec" conditions.
 	// It receives the command string (after token expansion) and returns
@@ -57,7 +79,7 @@ type MatchContext struct {
 	ExecFunc func(cmd string) bool
 
 	// LocalAddresses are the IP addresses of local network interfaces,
-	// used for "Match localnetwork" conditions.
+	// used for "Match localnetwork" conditions on the client.
 	LocalAddresses []net.IP
 
 	// IsCanonical is true when re-parsing after hostname canonicalization.
@@ -122,7 +144,43 @@ const (
 	MatchFieldCommand
 	MatchFieldVersion
 	MatchFieldSessionType
+
+	// Server-side Match fields (sshd_config).
+
+	// MatchFieldGroup matches against any of MatchContext.Groups.
+	MatchFieldGroup
+	// MatchFieldLocalPort matches against MatchContext.LocalPort.
+	MatchFieldLocalPort
+	// MatchFieldRDomain matches against MatchContext.RDomain.
+	MatchFieldRDomain
 )
+
+// MatchAddressCondition matches a client or server address against a list of
+// patterns. Patterns may be globs (e.g. "192.0.2.*") or CIDR ranges
+// (e.g. "192.0.2.0/24"). Used by sshd_config "Match address" and
+// "Match localaddress".
+type MatchAddressCondition struct {
+	// Field indicates which address to check.
+	Field MatchAddressField
+	// Patterns is the comma-separated pattern list.
+	Patterns string
+	// Negated indicates '!' prefix on the criteria keyword.
+	Negated bool
+}
+
+// MatchAddressField selects which address in the MatchContext is being tested.
+type MatchAddressField int
+
+const (
+	// MatchAddressRemote tests RemoteAddr / RemoteAddrIP (sshd "Match address").
+	MatchAddressRemote MatchAddressField = iota
+	// MatchAddressLocal tests LocalAddr / LocalAddrIP (sshd "Match localaddress").
+	MatchAddressLocal
+)
+
+// MatchInvalidUserCondition matches when the authenticating user is unknown.
+// Used by sshd_config "Match Invalid-User".
+type MatchInvalidUserCondition struct{}
 
 // ParseOptions configures the behavior of the parser.
 type ParseOptions struct {

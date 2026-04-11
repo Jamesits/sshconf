@@ -92,7 +92,7 @@ func parseForward(value string) (Forward, error) {
 		// Unix socket path
 		fwd.BindPort = bindSpec
 	} else {
-		host, port, ok := splitHostPort(bindSpec)
+		host, port, ok := sshconfig.SplitHostPort(bindSpec)
 		if ok {
 			fwd.BindAddress = host
 			fwd.BindPort = port
@@ -108,7 +108,7 @@ func parseForward(value string) (Forward, error) {
 			// Unix socket path
 			fwd.HostPort = destSpec
 		} else {
-			host, port, ok := splitHostPort(destSpec)
+			host, port, ok := sshconfig.SplitHostPort(destSpec)
 			if ok {
 				fwd.Host = host
 				fwd.HostPort = port
@@ -119,34 +119,6 @@ func parseForward(value string) (Forward, error) {
 	}
 
 	return fwd, nil
-}
-
-// splitHostPort splits host:port, handling [IPv6]:port notation.
-func splitHostPort(s string) (host, port string, ok bool) {
-	if strings.HasPrefix(s, "[") {
-		// [IPv6]:port
-		end := strings.Index(s, "]")
-		if end < 0 {
-			return "", "", false
-		}
-		host = s[1:end]
-		rest := s[end+1:]
-		if strings.HasPrefix(rest, ":") {
-			port = rest[1:]
-		}
-		return host, port, true
-	}
-
-	// Count colons — if more than 1, it's an IPv6 address without brackets
-	if strings.Count(s, ":") > 1 {
-		return s, "", false
-	}
-
-	idx := strings.LastIndex(s, ":")
-	if idx < 0 {
-		return "", "", false
-	}
-	return s[:idx], s[idx+1:], true
 }
 
 // appendSendEnv handles SendEnv's special accumulation rules:

@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jamesits/sshconf/pkg/sshconfig"
 )
@@ -32,25 +31,7 @@ func ParseOverrides(opts []string) ([]sshconfig.Entry, error) {
 	return entries, nil
 }
 
+// parseOverride wraps sshconfig.ParseOverride for internal use.
 func parseOverride(opt string) (keyword, value string, err error) {
-	// Try Key=Value first
-	if idx := strings.IndexByte(opt, '='); idx > 0 {
-		keyword = strings.TrimSpace(opt[:idx])
-		value = strings.TrimSpace(opt[idx+1:])
-		if keyword == "" {
-			return "", "", fmt.Errorf("empty keyword in %q", opt)
-		}
-		return keyword, value, nil
-	}
-
-	// Try "Key Value" (split on first whitespace)
-	fields := strings.SplitN(opt, " ", 2)
-	if len(fields) < 1 || fields[0] == "" {
-		return "", "", fmt.Errorf("empty option %q", opt)
-	}
-	keyword = fields[0]
-	if len(fields) > 1 {
-		value = strings.TrimSpace(fields[1])
-	}
-	return keyword, value, nil
+	return sshconfig.ParseOverride(opt)
 }
