@@ -12,6 +12,7 @@ Config file parsers:
 
 ## Code Style
 - Document the higher intention with comments
+- DO NOT write unit tests unless explicitly instructed to do so
 
 ## Compilation
 Always full recompile with `goreleaser build --snapshot --clean` and use the artifacts under `dist/`.
