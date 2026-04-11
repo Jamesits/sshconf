@@ -14,6 +14,21 @@ import (
 //
 // Zero-value Handlers (all nil) preserves the existing behavior exactly.
 type Handlers struct {
+	// --- User interaction ---
+
+	// UI provides caller-implemented methods for authentication
+	// prompts and host key confirmation. A nil UI disables all
+	// interactive prompts.
+	UI UI
+
+	// GSSAPIClient provides a GSSAPI client for Kerberos auth.
+	// If nil, GSSAPI auth is unavailable even if configured.
+	GSSAPIClient ssh.GSSAPIClient
+
+	// HostKeyCallback overrides the built-in host key verification.
+	// If nil, host key verification is built from config (known_hosts, etc.).
+	HostKeyCallback ssh.HostKeyCallback
+
 	// --- Pre-connection ---
 
 	// Dialer establishes the TCP connection to the SSH server.
@@ -246,4 +261,27 @@ type TerminalHandler interface {
 //   - SyslogFacility: syslog facility code
 type Logger interface {
 	Log(level, msg string)
+}
+
+// UI provides caller-implemented methods for SSH operations that require
+// user interaction. Implementations handle password/passphrase prompts,
+// keyboard-interactive challenges, banner display, and host key confirmation.
+// A nil UI disables all interactive code paths.
+type UI interface {
+	// PasswordCallback prompts for a password. Required for password auth.
+	PasswordCallback() (string, error)
+
+	// PassphraseCallback prompts for a private key passphrase.
+	// The argument is the key file path.
+	PassphraseCallback(keyFile string) ([]byte, error)
+
+	// InteractiveCallback handles keyboard-interactive challenges.
+	InteractiveCallback(name, instruction string, questions []string, echos []bool) ([]string, error)
+
+	// BannerCallback handles SSH server banner messages.
+	BannerCallback(message string) error
+
+	// HostKeyConfirm is called when StrictHostKeyChecking is "ask" and
+	// a new or changed host key is encountered. Return true to accept.
+	HostKeyConfirm(hostname string, remote net.Addr, key ssh.PublicKey) bool
 }

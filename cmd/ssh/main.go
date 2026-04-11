@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/signal"
-	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -19,86 +17,84 @@ import (
 	"github.com/jamesits/sshconf/pkg/logger"
 	"github.com/jamesits/sshconf/pkg/session"
 	"github.com/jamesits/sshconf/pkg/terminal"
+	clienttui "github.com/jamesits/sshconf/pkg/tui/client"
+	"github.com/jamesits/sshconf/pkg/version"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/term"
 )
-
-const version = "sshconf_1.0"
 
 func main() {
 	os.Exit(run())
 }
 
 func run() int {
-	args, err := parseArgs(os.Args)
-	if err != nil {
+	args := &client.CLIArgs{}
+	if err := args.Parse(client.ModeOptionsHostCommand, os.Args[1:]...); err != nil {
 		fmt.Fprintf(os.Stderr, "ssh: %v\n", err)
 		return 255
 	}
 
-	if args.version {
-		fmt.Printf("ssh (sshconf) %s\n", version)
+	if args.Version {
+		fmt.Printf("ssh (sshconf) %s\n", version.Version)
 		return 0
 	}
 
-	if args.queryType != "" {
-		if err := runQuery(args.queryType); err != nil {
+	uiHandler := clienttui.New()
+
+	if args.QueryType != "" {
+		if err := uiHandler.RunQuery(args.QueryType); err != nil {
 			fmt.Fprintf(os.Stderr, "ssh: %v\n", err)
 			return 255
 		}
 		return 0
 	}
 
-	if args.destination == "" {
-		fmt.Fprintf(os.Stderr, "usage: ssh [-46AaCfGgKkMNnqsTtVvXxYy] [-B bind_interface]\n"+
-			"           [-b bind_address] [-c cipher_spec] [-D [bind_address:]port]\n"+
-			"           [-E log_file] [-e escape_char] [-F configfile] [-I pkcs11]\n"+
-			"           [-i identity_file] [-J [user@]host[:port]] [-L address]\n"+
-			"           [-l login_name] [-m mac_spec] [-O ctl_cmd] [-o option] [-P tag]\n"+
-			"           [-p port] [-Q query_option] [-R address] [-S ctl_path]\n"+
-			"           [-W host:port] [-w local_tun[:remote_tun]]\n"+
-			"           destination [command [argument ...]]\n")
+	if args.Destination == "" {
+		uiHandler.Usage("ssh", client.ModeOptionsHostCommand)
 		return 255
 	}
 
 	// Parse destination
-	destUser, destHost := parseDestination(args.destination)
+	destUser, destHost := client.ParseDestination(args.Destination)
 
-	// Build lookup
-	cmdOpts := args.buildCommandLineOptions()
+	// Build directives from CLI flags
+	cliDirectives, err := args.Directives()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ssh: %v\n", err)
+		return 255
+	}
 
 	// Determine user: user@host wins over -l
 	lookupUser := destUser
 	if lookupUser == "" {
-		lookupUser = args.user
+		lookupUser = args.User
 	}
 
 	// Determine port
 	lookupPort := 0
-	if args.port != "" {
-		p, err := strconv.Atoi(args.port)
+	if args.Port != "" {
+		p, err := strconv.Atoi(args.Port)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ssh: bad port '%s'\n", args.port)
+			fmt.Fprintf(os.Stderr, "ssh: bad port '%s'\n", args.Port)
 			return 255
 		}
 		lookupPort = p
 	}
 
 	// Remote command
-	remoteCmd := strings.Join(args.command, " ")
+	remoteCmd := strings.Join(args.Command, " ")
 
 	// Session type
 	sessionType := ""
-	if args.noCommand {
+	if args.NoCommand {
 		sessionType = "none"
-	} else if args.subsystem {
+	} else if args.Subsystem {
 		sessionType = "subsystem"
 	} else if remoteCmd != "" {
 		sessionType = "exec"
 	}
 
 	// Logger
-	lgr := logger.New(args.logFile, args.verbosity, args.quiet)
+	lgr := logger.New(args.LogFile, args.Verbosity, args.Quiet)
 
 	// Session handler (needs to know if there's a command)
 	sessHandler := session.NewHandler(remoteCmd != "")
@@ -106,17 +102,14 @@ func run() int {
 	// Terminal state
 	termState := terminal.NewState()
 
-	// Callbacks
-	callbacks := client.Callbacks{
-		PasswordCallback:    makePasswordCallback(destHost, lookupUser),
-		PassphraseCallback:  passphraseCallback,
-		InteractiveCallback: interactiveCallback,
-		BannerCallback:      bannerCallback,
-		HostKeyConfirm:      hostKeyConfirm,
-	}
+	// Give the TUI the remote identity so its PasswordCallback can render
+	// the standard "user@host's password:" prompt.
+	uiHandler.Host = destHost
+	uiHandler.User = lookupUser
 
 	// Handlers
 	handlers := client.Handlers{
+		UI:              uiHandler,
 		Session:         sessHandler,
 		Forwarding:      forward.NewHandler(lgr),
 		AgentForwarding: &session.AgentHandler{},
@@ -126,24 +119,23 @@ func run() int {
 	}
 
 	lookup := &client.Lookup{
-		Host:               destHost,
-		User:               lookupUser,
-		Port:               lookupPort,
-		OriginalHost:       args.destination,
-		Command:            remoteCmd,
-		Tag:                args.tag,
-		SessionType:        sessionType,
-		Version:            version,
-		CommandLineOptions: cmdOpts,
-		Callbacks:          callbacks,
-		Handlers:           handlers,
+		Host:                  destHost,
+		User:                  lookupUser,
+		Port:                  lookupPort,
+		OriginalHost:          args.Destination,
+		Command:               remoteCmd,
+		Tag:                   args.Tag,
+		SessionType:           sessionType,
+		Version:               version.Version,
+		CommandLineDirectives: cliDirectives,
+		Handlers:              handlers,
 	}
 
-	if args.configFile != "" {
-		if strings.ToLower(args.configFile) == "none" {
+	if args.ConfigFile != "" {
+		if strings.ToLower(args.ConfigFile) == "none" {
 			lookup.UserConfigFile = "/dev/null"
 		} else {
-			lookup.UserConfigFile = args.configFile
+			lookup.UserConfigFile = args.ConfigFile
 		}
 	}
 
@@ -155,19 +147,19 @@ func run() int {
 	}
 
 	// Post-resolve TTY override
-	if args.noTTY {
+	if args.NoTTY {
 		opts.RequestTTY = strPtr("no")
-	} else if args.ttyCount >= 2 {
+	} else if args.TTYCount >= 2 {
 		opts.RequestTTY = strPtr("force")
-	} else if args.ttyCount == 1 {
+	} else if args.TTYCount == 1 {
 		opts.RequestTTY = strPtr("yes")
 	}
 
 	// Post-resolve verbosity
-	if args.quiet {
+	if args.Quiet {
 		opts.LogLevel = strPtr("QUIET")
-	} else if args.verbosity > 0 {
-		switch args.verbosity {
+	} else if args.Verbosity > 0 {
+		switch args.Verbosity {
 		case 1:
 			opts.LogLevel = strPtr("VERBOSE")
 		case 2:
@@ -178,10 +170,11 @@ func run() int {
 	}
 
 	// Stdio forwarding mode
-	if args.stdioFwd != "" {
+	if args.StdioFwd != "" {
 		opts.SessionType = strPtr("none")
 		opts.RequestTTY = strPtr("no")
-		opts.ClearAllForwardings = boolPtr(true)
+		v := true
+		opts.ClearAllForwardings = &v
 		opts.LocalForward = nil
 		opts.RemoteForward = nil
 		opts.DynamicForward = nil
@@ -193,13 +186,13 @@ func run() int {
 	}
 
 	// -G: print config and exit
-	if args.printConfig {
-		printConfig(opts, destHost, args.destination)
+	if args.PrintConfig {
+		uiHandler.PrintConfig(opts, destHost, args.Destination)
 		return 0
 	}
 
 	// Build SSH client config
-	sshConfig, err := opts.SSHClientConfig(callbacks, handlers)
+	sshConfig, err := opts.SSHClientConfig(handlers)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ssh: %v\n", err)
 		return 255
@@ -233,8 +226,8 @@ func run() int {
 	}
 
 	// Stdio forwarding mode (-W)
-	if args.stdioFwd != "" {
-		return forward.RunStdioForward(sshClient, args.stdioFwd)
+	if args.StdioFwd != "" {
+		return forward.RunStdioForward(sshClient, args.StdioFwd)
 	}
 
 	// No-session mode (-N)
@@ -301,7 +294,7 @@ func run() int {
 
 	// Start session
 	if remoteCmd != "" {
-		if args.subsystem {
+		if args.Subsystem {
 			err = sshSession.RequestSubsystem(remoteCmd)
 		} else {
 			err = sshSession.Start(remoteCmd)
@@ -374,233 +367,4 @@ func signalNumber(sig string) int {
 	return 0
 }
 
-// Callbacks
-
-func makePasswordCallback(host, user string) func() (string, error) {
-	return func() (string, error) {
-		fmt.Fprintf(os.Stderr, "%s@%s's password: ", user, host)
-		pw, err := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Fprintf(os.Stderr, "\n")
-		if err != nil {
-			return "", err
-		}
-		return string(pw), nil
-	}
-}
-
-func passphraseCallback(keyFile string) ([]byte, error) {
-	fmt.Fprintf(os.Stderr, "Enter passphrase for key '%s': ", keyFile)
-	pw, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintf(os.Stderr, "\n")
-	if err != nil {
-		return nil, err
-	}
-	return pw, nil
-}
-
-func interactiveCallback(name, instruction string, questions []string, echos []bool) ([]string, error) {
-	if name != "" {
-		fmt.Fprintf(os.Stderr, "%s\n", name)
-	}
-	if instruction != "" {
-		fmt.Fprintf(os.Stderr, "%s\n", instruction)
-	}
-
-	answers := make([]string, len(questions))
-	reader := bufio.NewReader(os.Stdin)
-
-	for i, q := range questions {
-		fmt.Fprintf(os.Stderr, "%s", q)
-		if echos[i] {
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				return nil, err
-			}
-			answers[i] = strings.TrimRight(line, "\r\n")
-		} else {
-			pw, err := term.ReadPassword(int(os.Stdin.Fd()))
-			fmt.Fprintf(os.Stderr, "\n")
-			if err != nil {
-				return nil, err
-			}
-			answers[i] = string(pw)
-		}
-	}
-
-	return answers, nil
-}
-
-func bannerCallback(message string) error {
-	fmt.Fprint(os.Stderr, message)
-	return nil
-}
-
-func hostKeyConfirm(hostname string, remote net.Addr, key ssh.PublicKey) bool {
-	fingerprint := ssh.FingerprintSHA256(key)
-	fmt.Fprintf(os.Stderr, "The authenticity of host '%s (%s)' can't be established.\n",
-		hostname, remote.String())
-	fmt.Fprintf(os.Stderr, "%s key fingerprint is %s.\n",
-		key.Type(), fingerprint)
-	fmt.Fprintf(os.Stderr, "Are you sure you want to continue connecting (yes/no/[fingerprint])? ")
-
-	reader := bufio.NewReader(os.Stdin)
-	answer, err := reader.ReadString('\n')
-	if err != nil {
-		return false
-	}
-	answer = strings.TrimSpace(answer)
-
-	switch strings.ToLower(answer) {
-	case "yes":
-		return true
-	case "no":
-		return false
-	default:
-		return answer == fingerprint
-	}
-}
-
-// printConfig prints the resolved configuration in ssh -G format.
-func printConfig(opts *client.Options, host, originalHost string) {
-	p := func(key string, val any) {
-		if val == nil {
-			return
-		}
-		v := reflect.ValueOf(val)
-		if v.Kind() == reflect.Ptr {
-			if v.IsNil() {
-				return
-			}
-			v = v.Elem()
-		}
-		switch v.Kind() {
-		case reflect.Bool:
-			if v.Bool() {
-				fmt.Printf("%s yes\n", key)
-			} else {
-				fmt.Printf("%s no\n", key)
-			}
-		case reflect.Int:
-			fmt.Printf("%s %d\n", key, v.Int())
-		case reflect.String:
-			fmt.Printf("%s %s\n", key, v.String())
-		}
-	}
-
-	pSlice := func(key string, vals []string) {
-		for _, v := range vals {
-			fmt.Printf("%s %s\n", key, v)
-		}
-	}
-
-	pFwd := func(key string, fwds []client.Forward) {
-		for _, f := range fwds {
-			bind := f.BindAddress
-			if bind != "" {
-				bind += ":"
-			}
-			fmt.Printf("%s %s%s %s:%s\n", key, bind, f.BindPort, f.Host, f.HostPort)
-		}
-	}
-
-	fmt.Printf("host %s\n", originalHost)
-
-	p("user", opts.User)
-	p("hostname", opts.Hostname)
-	p("port", opts.Port)
-	p("addressfamily", opts.AddressFamily)
-	p("bindaddress", opts.BindAddress)
-	p("bindinterface", opts.BindInterface)
-	p("connecttimeout", opts.ConnectTimeout)
-	p("connectionattempts", opts.ConnectionAttempts)
-	p("tcpkeepalive", opts.TCPKeepAlive)
-	p("serveraliveinterval", opts.ServerAliveInterval)
-	p("serveralivecountmax", opts.ServerAliveCountMax)
-	p("compression", opts.Compression)
-	p("batchmode", opts.BatchMode)
-
-	pSlice("identityfile", opts.IdentityFile)
-	pSlice("certificatefile", opts.CertificateFile)
-	p("identitiesonly", opts.IdentitiesOnly)
-	p("identityagent", opts.IdentityAgent)
-	p("passwordauthentication", opts.PasswordAuthentication)
-	p("kbdinteractiveauthentication", opts.KbdInteractiveAuthentication)
-	p("pubkeyauthentication", opts.PubkeyAuthentication)
-	p("preferredauthentications", opts.PreferredAuthentications)
-	p("numberofpasswordprompts", opts.NumberOfPasswordPrompts)
-	p("hostbasedauthentication", opts.HostbasedAuthentication)
-	p("gssapiauthentication", opts.GSSAPIAuthentication)
-	p("gssapidelegatecredentials", opts.GSSAPIDelegateCredentials)
-	p("addkeystoagent", opts.AddKeysToAgent)
-
-	p("ciphers", opts.Ciphers)
-	p("kexalgorithms", opts.KexAlgorithms)
-	p("macs", opts.MACs)
-	p("hostkeyalgorithms", opts.HostKeyAlgorithms)
-	p("pubkeyacceptedalgorithms", opts.PubkeyAcceptedAlgorithms)
-	p("casignaturealgorithms", opts.CASignatureAlgorithms)
-	p("rekeylimit", opts.RekeyLimit)
-	p("requiredrsasize", opts.RequiredRSASize)
-	p("fingerprinthash", opts.FingerprintHash)
-
-	p("stricthostkeychecking", opts.StrictHostKeyChecking)
-	p("userknownhostsfile", opts.UserKnownHostsFile)
-	p("globalknownhostsfile", opts.GlobalKnownHostsFile)
-	p("hashknownhosts", opts.HashKnownHosts)
-	p("checkhostip", opts.CheckHostIP)
-	p("hostkeyalias", opts.HostKeyAlias)
-	p("knownhostscommand", opts.KnownHostsCommand)
-	p("revokedhostkeys", opts.RevokedHostKeys)
-	p("updatehostkeys", opts.UpdateHostKeys)
-	p("verifyhostkeydns", opts.VerifyHostKeyDNS)
-	p("nohostauthenticationforlocalhost", opts.NoHostAuthenticationForLocalhost)
-
-	p("proxycommand", opts.ProxyCommand)
-	p("proxyjump", opts.ProxyJump)
-	p("proxyusefdpass", opts.ProxyUseFdpass)
-
-	pFwd("localforward", opts.LocalForward)
-	pFwd("remoteforward", opts.RemoteForward)
-	pSlice("dynamicforward", opts.DynamicForward)
-	p("clearallforwardings", opts.ClearAllForwardings)
-	p("exitonforwardfailure", opts.ExitOnForwardFailure)
-	p("gatewayports", opts.GatewayPorts)
-
-	p("forwardagent", opts.ForwardAgent)
-	p("forwardx11", opts.ForwardX11)
-	p("forwardx11trusted", opts.ForwardX11Trusted)
-	p("forwardx11timeout", opts.ForwardX11Timeout)
-	p("xauthlocation", opts.XAuthLocation)
-
-	p("tunnel", opts.Tunnel)
-	p("tunneldevice", opts.TunnelDevice)
-
-	p("requesttty", opts.RequestTTY)
-	p("sessiontype", opts.SessionType)
-	p("remotecommand", opts.RemoteCommand)
-	pSlice("sendenv", opts.SendEnv)
-	pSlice("setenv", opts.SetEnv)
-	p("escapechar", opts.EscapeChar)
-	p("loglevel", opts.LogLevel)
-	p("syslogfacility", opts.SyslogFacility)
-
-	p("controlmaster", opts.ControlMaster)
-	p("controlpath", opts.ControlPath)
-	p("controlpersist", opts.ControlPersist)
-
-	p("permitlocalcommand", opts.PermitLocalCommand)
-	p("localcommand", opts.LocalCommand)
-	p("visualhostkey", opts.VisualHostKey)
-	p("forkafterauthentication", opts.ForkAfterAuthentication)
-	p("stdinnull", opts.StdinNull)
-	p("enableescapecommandline", opts.EnableEscapeCommandline)
-	p("obscurekeystroketiming", opts.ObscureKeystrokeTiming)
-
-	p("canonicalizehostname", opts.CanonicalizeHostname)
-	pSlice("canonicaldomains", opts.CanonicalDomains)
-	p("canonicalizemaxdots", opts.CanonicalizeMaxDots)
-	p("canonicalizefallbacklocal", opts.CanonicalizeFallbackLocal)
-}
-
 func strPtr(s string) *string { return &s }
-func boolPtr(b bool) *bool    { return &b }

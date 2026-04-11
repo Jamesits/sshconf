@@ -6,19 +6,18 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jamesits/sshconf/pkg/version"
 	"golang.org/x/crypto/ssh"
 )
 
 // SSHClientConfig converts the resolved Options into an ssh.ClientConfig
 // ready for use with ssh.Dial or ssh.NewClientConn.
 //
-// The callbacks parameter provides caller-implemented functions for
-// authentication prompts, GSSAPI, and host key confirmation.
-//
 // The handlers parameter provides optional implementations for config
-// options that cannot be automatically applied (proxy, forwarding, etc.).
-// A zero-value Handlers (all nil) preserves existing behavior.
-func (opts *Options) SSHClientConfig(callbacks Callbacks, handlers Handlers) (*ssh.ClientConfig, error) {
+// options that cannot be automatically applied (proxy, forwarding,
+// authentication prompts, host key confirmation, etc.). A zero-value
+// Handlers preserves existing behavior.
+func (opts *Options) SSHClientConfig(handlers Handlers) (*ssh.ClientConfig, error) {
 	cfg := &ssh.ClientConfig{}
 
 	// User
@@ -33,9 +32,9 @@ func (opts *Options) SSHClientConfig(callbacks Callbacks, handlers Handlers) (*s
 
 	// Client version string
 	if opts.VersionAddendum != nil && *opts.VersionAddendum != "none" {
-		cfg.ClientVersion = "SSH-2.0-sshconf_1.0 " + *opts.VersionAddendum
+		cfg.ClientVersion = "SSH-2.0-" + version.Version + " " + *opts.VersionAddendum
 	} else {
-		cfg.ClientVersion = "SSH-2.0-sshconf_1.0"
+		cfg.ClientVersion = "SSH-2.0-" + version.Version
 	}
 
 	// Crypto configuration
@@ -61,22 +60,22 @@ func (opts *Options) SSHClientConfig(callbacks Callbacks, handlers Handlers) (*s
 	}
 
 	// Authentication methods
-	authMethods, err := buildAuthMethods(opts, callbacks, handlers)
+	authMethods, err := buildAuthMethods(opts, handlers)
 	if err != nil {
 		return nil, err
 	}
 	cfg.Auth = authMethods
 
 	// Host key callback
-	hostKeyCallback, err := buildHostKeyCallback(opts, callbacks, handlers)
+	hostKeyCallback, err := buildHostKeyCallback(opts, handlers)
 	if err != nil {
 		return nil, err
 	}
 	cfg.HostKeyCallback = hostKeyCallback
 
 	// Banner callback
-	if callbacks.BannerCallback != nil {
-		cfg.BannerCallback = callbacks.BannerCallback
+	if handlers.UI != nil {
+		cfg.BannerCallback = handlers.UI.BannerCallback
 	} else if opts.BatchMode != nil && !*opts.BatchMode {
 		// In non-batch mode, silently accept banners (caller can override)
 		cfg.BannerCallback = func(message string) error { return nil }

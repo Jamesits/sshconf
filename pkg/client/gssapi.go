@@ -19,10 +19,10 @@ import "golang.org/x/crypto/ssh"
 //
 //	// Pure Go (always available):
 //	krb5, err := gssapi.NewKrb5ClientFromCCache("", gssapi.Krb5Config{})
-//	lookup.Callbacks.GSSAPIClient = krb5
+//	handlers.GSSAPIClient = krb5
 //
 //	// CGO (requires CGO_ENABLED=1 and libgssapi_krb5):
-//	lookup.Callbacks.GSSAPIClient = gssapi.NewCGOClient()
+//	handlers.GSSAPIClient = gssapi.NewCGOClient()
 type GSSAPIClient = ssh.GSSAPIClient
 
 // GSSAPIConfig holds configuration for GSSAPI authentication derived from

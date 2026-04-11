@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	"github.com/jamesits/sshconf/pkg/sshconfig"
-	"golang.org/x/crypto/ssh"
+	versionpkg "github.com/jamesits/sshconf/pkg/version"
 )
 
 // Lookup specifies the inputs for SSH client configuration resolution.
@@ -37,6 +37,10 @@ type Lookup struct {
 	// If empty, defaults to a reasonable value.
 	Version string
 
+	// CommandLineDirectives are pre-parsed directives from CLI flags, highest priority.
+	// These are applied before CommandLineOptions.
+	CommandLineDirectives []sshconfig.Directive
+
 	// CommandLineOptions are raw -o "Key=Value" strings, highest priority.
 	CommandLineOptions []string
 
@@ -51,45 +55,10 @@ type Lookup struct {
 	// always evaluate to false.
 	ExecFunc func(cmd string) bool
 
-	// Callbacks provide caller-implemented functions for building
-	// the final ssh.ClientConfig.
-	Callbacks Callbacks
-
 	// Handlers provide optional implementations for config options that
 	// cannot be automatically applied. During resolution, the
 	// HostCanonicalizer and CommandExecutor handlers are consulted if set.
 	Handlers Handlers
-}
-
-// Callbacks contains caller-provided functions for SSH operations that
-// require user interaction or external system access.
-type Callbacks struct {
-	// PasswordCallback prompts for a password. Required for password auth.
-	PasswordCallback func() (string, error)
-
-	// PassphraseCallback prompts for a private key passphrase.
-	// The argument is the key file path.
-	PassphraseCallback func(keyFile string) ([]byte, error)
-
-	// InteractiveCallback handles keyboard-interactive challenges.
-	InteractiveCallback ssh.KeyboardInteractiveChallenge
-
-	// GSSAPIClient provides a GSSAPI client for Kerberos auth.
-	// If nil, GSSAPI auth is unavailable even if configured.
-	GSSAPIClient ssh.GSSAPIClient
-
-	// HostKeyCallback overrides the built-in host key verification.
-	// If nil, host key verification is built from config (known_hosts, etc.).
-	HostKeyCallback ssh.HostKeyCallback
-
-	// BannerCallback handles SSH server banner messages.
-	// If nil, banners are silently discarded.
-	BannerCallback ssh.BannerCallback
-
-	// HostKeyConfirm is called when StrictHostKeyChecking is "ask" and
-	// a new or changed host key is encountered. Return true to accept.
-	// If nil, unknown host keys are rejected.
-	HostKeyConfirm func(hostname string, remote net.Addr, key ssh.PublicKey) bool
 }
 
 // Resolve applies the SSH configuration resolution algorithm:
@@ -122,10 +91,17 @@ func (l *Lookup) Resolve() (*Options, error) {
 
 	version := l.Version
 	if version == "" {
-		version = "sshconf_1.0"
+		version = versionpkg.Version
 	}
 
-	// 1. Parse -o overrides
+	// 1. Build command-line entries from pre-parsed directives and -o overrides
+	var cliEntries []sshconfig.Entry
+	for _, dir := range l.CommandLineDirectives {
+		cliEntries = append(cliEntries, sshconfig.Entry{
+			Conditions: nil, // unconditional
+			Directive:  dir,
+		})
+	}
 	overrides, err := ParseOverrides(l.CommandLineOptions)
 	if err != nil {
 		return nil, fmt.Errorf("parsing overrides: %w", err)
@@ -167,6 +143,7 @@ func (l *Lookup) Resolve() (*Options, error) {
 
 	// Concatenate all entries in priority order
 	var allEntries []sshconfig.Entry
+	allEntries = append(allEntries, cliEntries...)
 	allEntries = append(allEntries, overrides...)
 	allEntries = append(allEntries, userEntries...)
 	allEntries = append(allEntries, systemEntries...)
@@ -198,7 +175,7 @@ func (l *Lookup) Resolve() (*Options, error) {
 		if !sshconfig.EvaluateConditions(entry.Conditions, matchCtx) {
 			continue
 		}
-		if err := applyDirective(opts, entry.Directive); err != nil {
+		if err := opts.ApplyDirective(entry.Directive); err != nil {
 			return nil, err
 		}
 		// Update match context as values are resolved
@@ -247,7 +224,7 @@ func (l *Lookup) Resolve() (*Options, error) {
 				if !sshconfig.EvaluateConditions(entry.Conditions, matchCtx) {
 					continue
 				}
-				if err := applyDirective(canonOpts, entry.Directive); err != nil {
+				if err := canonOpts.ApplyDirective(entry.Directive); err != nil {
 					return nil, err
 				}
 			}
@@ -263,7 +240,7 @@ func (l *Lookup) Resolve() (*Options, error) {
 		if !sshconfig.EvaluateConditions(entry.Conditions, matchCtx) {
 			continue
 		}
-		if err := applyDirective(finalOpts, entry.Directive); err != nil {
+		if err := finalOpts.ApplyDirective(entry.Directive); err != nil {
 			return nil, err
 		}
 	}

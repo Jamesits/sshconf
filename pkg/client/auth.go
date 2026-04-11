@@ -10,8 +10,9 @@ import (
 )
 
 // buildAuthMethods constructs the ordered list of ssh.AuthMethod based on
-// the resolved configuration, caller-provided callbacks, and handlers.
-func buildAuthMethods(opts *Options, callbacks Callbacks, handlers Handlers) ([]ssh.AuthMethod, error) {
+// the resolved configuration and the handlers (which carry the caller-provided
+// UI).
+func buildAuthMethods(opts *Options, handlers Handlers) ([]ssh.AuthMethod, error) {
 	// Determine which methods are enabled
 	methods := make(map[string]bool)
 	methods["gssapi-with-mic"] = opts.GSSAPIAuthentication != nil && *opts.GSSAPIAuthentication
@@ -35,18 +36,18 @@ func buildAuthMethods(opts *Options, callbacks Callbacks, handlers Handlers) ([]
 
 		switch method {
 		case "gssapi-with-mic":
-			if callbacks.GSSAPIClient == nil {
+			if handlers.GSSAPIClient == nil {
 				continue
 			}
 			gssConfig := gssapiConfigFromOptions(opts)
 			authMethods = append(authMethods,
 				ssh.GSSAPIWithMICAuthMethod(&gssapiClientWrapper{
-					inner:      callbacks.GSSAPIClient,
+					inner:      handlers.GSSAPIClient,
 					delegCreds: gssConfig.DelegateCredentials,
 				}, gssConfig.Target))
 
 		case "publickey":
-			am, err := buildPublicKeyAuth(opts, callbacks, handlers)
+			am, err := buildPublicKeyAuth(opts, handlers)
 			if err != nil {
 				return nil, err
 			}
@@ -55,17 +56,17 @@ func buildAuthMethods(opts *Options, callbacks Callbacks, handlers Handlers) ([]
 			}
 
 		case "keyboard-interactive":
-			if callbacks.InteractiveCallback != nil {
-				authMethods = append(authMethods, ssh.KeyboardInteractive(callbacks.InteractiveCallback))
+			if handlers.UI != nil {
+				authMethods = append(authMethods, ssh.KeyboardInteractive(handlers.UI.InteractiveCallback))
 			}
 
 		case "password":
-			if callbacks.PasswordCallback != nil {
+			if handlers.UI != nil {
 				maxTries := 3
 				if opts.NumberOfPasswordPrompts != nil {
 					maxTries = *opts.NumberOfPasswordPrompts
 				}
-				am := ssh.PasswordCallback(callbacks.PasswordCallback)
+				am := ssh.PasswordCallback(handlers.UI.PasswordCallback)
 				authMethods = append(authMethods, ssh.RetryableAuthMethod(am, maxTries))
 			}
 
@@ -84,7 +85,11 @@ func buildAuthMethods(opts *Options, callbacks Callbacks, handlers Handlers) ([]
 
 // buildPublicKeyAuth creates a PublicKeysCallback auth method from configured
 // identity files, the SSH agent, and any KeyProvider handler.
-func buildPublicKeyAuth(opts *Options, callbacks Callbacks, handlers Handlers) (ssh.AuthMethod, error) {
+func buildPublicKeyAuth(opts *Options, handlers Handlers) (ssh.AuthMethod, error) {
+	var passphraseCallback func(string) ([]byte, error)
+	if handlers.UI != nil {
+		passphraseCallback = handlers.UI.PassphraseCallback
+	}
 	return ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
 		var signers []ssh.Signer
 
@@ -105,7 +110,7 @@ func buildPublicKeyAuth(opts *Options, callbacks Callbacks, handlers Handlers) (
 
 		// Load configured identity files
 		for _, keyFile := range opts.IdentityFile {
-			signer, err := loadPrivateKey(keyFile, callbacks.PassphraseCallback)
+			signer, err := loadPrivateKey(keyFile, passphraseCallback)
 			if err != nil {
 				continue // skip files that can't be loaded
 			}
@@ -135,7 +140,7 @@ func buildPublicKeyAuth(opts *Options, callbacks Callbacks, handlers Handlers) (
 			}
 			// Try to find matching private key from identity files
 			for _, keyFile := range opts.IdentityFile {
-				signer, err := loadPrivateKey(keyFile, callbacks.PassphraseCallback)
+				signer, err := loadPrivateKey(keyFile, passphraseCallback)
 				if err != nil || signer == nil {
 					continue
 				}
@@ -237,22 +242,4 @@ func loadCertificate(keyFile string, signer ssh.Signer) ssh.Signer {
 	}
 
 	return certSigner
-}
-
-// gssapiClientWrapper wraps a GSSAPIClient to handle credential delegation.
-type gssapiClientWrapper struct {
-	inner      ssh.GSSAPIClient
-	delegCreds bool
-}
-
-func (g *gssapiClientWrapper) InitSecContext(target string, token []byte, isGSSDelegCreds bool) ([]byte, bool, error) {
-	return g.inner.InitSecContext(target, token, g.delegCreds)
-}
-
-func (g *gssapiClientWrapper) GetMIC(micField []byte) ([]byte, error) {
-	return g.inner.GetMIC(micField)
-}
-
-func (g *gssapiClientWrapper) DeleteSecContext() error {
-	return g.inner.DeleteSecContext()
 }

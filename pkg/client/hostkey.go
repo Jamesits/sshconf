@@ -19,10 +19,10 @@ import (
 //  3. Known hosts file verification (UserKnownHostsFile + GlobalKnownHostsFile)
 //  4. Revoked host keys check
 //  5. StrictHostKeyChecking policy (ask/accept-new/yes/no/off)
-func buildHostKeyCallback(opts *Options, callbacks Callbacks, handlers Handlers) (ssh.HostKeyCallback, error) {
+func buildHostKeyCallback(opts *Options, handlers Handlers) (ssh.HostKeyCallback, error) {
 	// If caller provides a custom callback, use it directly
-	if callbacks.HostKeyCallback != nil {
-		return callbacks.HostKeyCallback, nil
+	if handlers.HostKeyCallback != nil {
+		return handlers.HostKeyCallback, nil
 	}
 
 	// Collect known hosts files
@@ -145,8 +145,8 @@ func buildHostKeyCallback(opts *Options, callbacks Callbacks, handlers Handlers)
 				// Accept new keys, but would reject changed keys (handled above)
 				return nil
 			case "ask":
-				if callbacks.HostKeyConfirm != nil {
-					if callbacks.HostKeyConfirm(lookupHost, remote, key) {
+				if handlers.UI != nil {
+					if handlers.UI.HostKeyConfirm(lookupHost, remote, key) {
 						return nil
 					}
 				}
@@ -163,8 +163,8 @@ func buildHostKeyCallback(opts *Options, callbacks Callbacks, handlers Handlers)
 		case "no", "off", "accept-new":
 			return nil
 		case "ask":
-			if callbacks.HostKeyConfirm != nil {
-				if callbacks.HostKeyConfirm(hostname, remote, key) {
+			if handlers.UI != nil {
+				if handlers.UI.HostKeyConfirm(hostname, remote, key) {
 					return nil
 				}
 			}

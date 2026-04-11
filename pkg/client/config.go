@@ -151,9 +151,6 @@ type Forward struct {
 	HostPort string
 }
 
-// boolPtr returns a pointer to a bool value.
-func boolPtr(v bool) *bool { return &v }
-
 // intPtr returns a pointer to an int value.
 func intPtr(v int) *int { return &v }
 

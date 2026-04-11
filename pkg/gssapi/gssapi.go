@@ -8,7 +8,7 @@
 //     and is only compiled when CGO is enabled (//go:build cgo).
 //
 // Both implement [ssh.GSSAPIClient] and can be passed directly to
-// [github.com/jamesits/sshconf/pkg/client.Callbacks.GSSAPIClient].
+// [github.com/jamesits/sshconf/pkg/client.UI.GSSAPIClient].
 package gssapi
 
 import "golang.org/x/crypto/ssh"
