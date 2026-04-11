@@ -16,16 +16,16 @@ var directiveTable map[string]directiveHandler
 func init() {
 	directiveTable = map[string]directiveHandler{
 		// --- Connection ---
-		"addressfamily":      strField(func(o *Options) **string { return &o.AddressFamily }),
-		"batchmode":          boolField(func(o *Options) **bool { return &o.BatchMode }),
-		"bindaddress":        strField(func(o *Options) **string { return &o.BindAddress }),
-		"bindinterface":      strField(func(o *Options) **string { return &o.BindInterface }),
-		"connecttimeout":     intField(func(o *Options) **int { return &o.ConnectTimeout }),
-		"connectionattempts": intField(func(o *Options) **int { return &o.ConnectionAttempts }),
-		"tcpkeepalive":       boolField(func(o *Options) **bool { return &o.TCPKeepAlive }),
+		"addressfamily":       strField(func(o *Options) **string { return &o.AddressFamily }),
+		"batchmode":           boolField(func(o *Options) **bool { return &o.BatchMode }),
+		"bindaddress":         strField(func(o *Options) **string { return &o.BindAddress }),
+		"bindinterface":       strField(func(o *Options) **string { return &o.BindInterface }),
+		"connecttimeout":      intField(func(o *Options) **int { return &o.ConnectTimeout }),
+		"connectionattempts":  intField(func(o *Options) **int { return &o.ConnectionAttempts }),
+		"tcpkeepalive":        boolField(func(o *Options) **bool { return &o.TCPKeepAlive }),
 		"serveraliveinterval": intField(func(o *Options) **int { return &o.ServerAliveInterval }),
 		"serveralivecountmax": intField(func(o *Options) **int { return &o.ServerAliveCountMax }),
-		"compression":        boolField(func(o *Options) **bool { return &o.Compression }),
+		"compression":         boolField(func(o *Options) **bool { return &o.Compression }),
 
 		// --- Host Resolution ---
 		"hostname":                    strField(func(o *Options) **string { return &o.Hostname }),
@@ -37,27 +37,27 @@ func init() {
 		"canonicalizepermittedcnames": firstFields(func(o *Options) *[]string { return &o.CanonicalizePermittedCNAMEs }),
 
 		// --- Authentication ---
-		"user":                         strField(func(o *Options) **string { return &o.User }),
-		"identityfile":                 identityFileHandler,
-		"identitiesonly":               boolField(func(o *Options) **bool { return &o.IdentitiesOnly }),
-		"identityagent":                strField(func(o *Options) **string { return &o.IdentityAgent }),
-		"certificatefile":              appendField(func(o *Options) *[]string { return &o.CertificateFile }),
-		"passwordauthentication":       boolField(func(o *Options) **bool { return &o.PasswordAuthentication }),
-		"kbdinteractiveauthentication": boolField(func(o *Options) **bool { return &o.KbdInteractiveAuthentication }),
+		"user":                            strField(func(o *Options) **string { return &o.User }),
+		"identityfile":                    identityFileHandler,
+		"identitiesonly":                  boolField(func(o *Options) **bool { return &o.IdentitiesOnly }),
+		"identityagent":                   strField(func(o *Options) **string { return &o.IdentityAgent }),
+		"certificatefile":                 appendField(func(o *Options) *[]string { return &o.CertificateFile }),
+		"passwordauthentication":          boolField(func(o *Options) **bool { return &o.PasswordAuthentication }),
+		"kbdinteractiveauthentication":    boolField(func(o *Options) **bool { return &o.KbdInteractiveAuthentication }),
 		"challengeresponseauthentication": boolField(func(o *Options) **bool { return &o.KbdInteractiveAuthentication }), // alias
-		"kbdinteractivedevices":        strField(func(o *Options) **string { return &o.KbdInteractiveDevices }),
-		"pubkeyauthentication":         strField(func(o *Options) **string { return &o.PubkeyAuthentication }),
-		"pubkeyacceptedalgorithms":     strField(func(o *Options) **string { return &o.PubkeyAcceptedAlgorithms }),
-		"pubkeyacceptedkeytypes":       strField(func(o *Options) **string { return &o.PubkeyAcceptedAlgorithms }), // alias
-		"preferredauthentications":     strField(func(o *Options) **string { return &o.PreferredAuthentications }),
-		"numberofpasswordprompts":      intField(func(o *Options) **int { return &o.NumberOfPasswordPrompts }),
-		"hostbasedauthentication":      boolField(func(o *Options) **bool { return &o.HostbasedAuthentication }),
-		"hostbasedacceptedalgorithms":  strField(func(o *Options) **string { return &o.HostbasedAcceptedAlgorithms }),
-		"hostbasedkeytypes":            strField(func(o *Options) **string { return &o.HostbasedAcceptedAlgorithms }), // alias
-		"enablesshkeysign":             boolField(func(o *Options) **bool { return &o.EnableSSHKeysign }),
-		"gssapiauthentication":         boolField(func(o *Options) **bool { return &o.GSSAPIAuthentication }),
-		"gssapidelegatecredentials":    boolField(func(o *Options) **bool { return &o.GSSAPIDelegateCredentials }),
-		"addkeystoagent":               strField(func(o *Options) **string { return &o.AddKeysToAgent }),
+		"kbdinteractivedevices":           strField(func(o *Options) **string { return &o.KbdInteractiveDevices }),
+		"pubkeyauthentication":            strField(func(o *Options) **string { return &o.PubkeyAuthentication }),
+		"pubkeyacceptedalgorithms":        strField(func(o *Options) **string { return &o.PubkeyAcceptedAlgorithms }),
+		"pubkeyacceptedkeytypes":          strField(func(o *Options) **string { return &o.PubkeyAcceptedAlgorithms }), // alias
+		"preferredauthentications":        strField(func(o *Options) **string { return &o.PreferredAuthentications }),
+		"numberofpasswordprompts":         intField(func(o *Options) **int { return &o.NumberOfPasswordPrompts }),
+		"hostbasedauthentication":         boolField(func(o *Options) **bool { return &o.HostbasedAuthentication }),
+		"hostbasedacceptedalgorithms":     strField(func(o *Options) **string { return &o.HostbasedAcceptedAlgorithms }),
+		"hostbasedkeytypes":               strField(func(o *Options) **string { return &o.HostbasedAcceptedAlgorithms }), // alias
+		"enablesshkeysign":                boolField(func(o *Options) **bool { return &o.EnableSSHKeysign }),
+		"gssapiauthentication":            boolField(func(o *Options) **bool { return &o.GSSAPIAuthentication }),
+		"gssapidelegatecredentials":       boolField(func(o *Options) **bool { return &o.GSSAPIDelegateCredentials }),
+		"addkeystoagent":                  strField(func(o *Options) **string { return &o.AddKeysToAgent }),
 
 		// --- Crypto ---
 		"ciphers":               strField(func(o *Options) **string { return &o.Ciphers }),
@@ -89,14 +89,14 @@ func init() {
 		"proxyusefdpass": boolField(func(o *Options) **bool { return &o.ProxyUseFdpass }),
 
 		// --- Forwarding ---
-		"localforward":        localForwardHandler,
-		"remoteforward":       remoteForwardHandler,
-		"dynamicforward":      appendField(func(o *Options) *[]string { return &o.DynamicForward }),
-		"clearallforwardings": boolField(func(o *Options) **bool { return &o.ClearAllForwardings }),
-		"exitonforwardfailure": boolField(func(o *Options) **bool { return &o.ExitOnForwardFailure }),
-		"gatewayports":        boolField(func(o *Options) **bool { return &o.GatewayPorts }),
-		"permitremoteopen":    firstFields(func(o *Options) *[]string { return &o.PermitRemoteOpen }),
-		"streamlocalbindmask": strField(func(o *Options) **string { return &o.StreamLocalBindMask }),
+		"localforward":          localForwardHandler,
+		"remoteforward":         remoteForwardHandler,
+		"dynamicforward":        appendField(func(o *Options) *[]string { return &o.DynamicForward }),
+		"clearallforwardings":   boolField(func(o *Options) **bool { return &o.ClearAllForwardings }),
+		"exitonforwardfailure":  boolField(func(o *Options) **bool { return &o.ExitOnForwardFailure }),
+		"gatewayports":          boolField(func(o *Options) **bool { return &o.GatewayPorts }),
+		"permitremoteopen":      firstFields(func(o *Options) *[]string { return &o.PermitRemoteOpen }),
+		"streamlocalbindmask":   strField(func(o *Options) **string { return &o.StreamLocalBindMask }),
 		"streamlocalbindunlink": boolField(func(o *Options) **bool { return &o.StreamLocalBindUnlink }),
 
 		// --- Agent ---

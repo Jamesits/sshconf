@@ -56,16 +56,16 @@ func run() int {
 }
 
 type addArgs struct {
-	list     bool     // -l
-	listPub  bool     // -L
-	delete   bool     // -d
-	deleteAll bool    // -D
-	lock     bool     // -x
-	unlock   bool     // -X
-	confirm  bool     // -c
-	lifetime uint32   // -t
-	files    []string
-	version  bool
+	list      bool   // -l
+	listPub   bool   // -L
+	delete    bool   // -d
+	deleteAll bool   // -D
+	lock      bool   // -x
+	unlock    bool   // -X
+	confirm   bool   // -c
+	lifetime  uint32 // -t
+	files     []string
+	version   bool
 }
 
 func parseArgs(args []string) *addArgs {

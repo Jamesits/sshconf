@@ -7,7 +7,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/jamesits/sshconf/pkg/client"
+	"github.com/jamesits/sshconf/pkg/sshclient"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
@@ -46,7 +46,7 @@ func (t *State) Restore() {
 	}
 }
 
-// Handler implements client.TerminalHandler.
+// Handler implements sshclient.TerminalHandler.
 type Handler struct {
 	State *State
 }
@@ -57,7 +57,7 @@ func NewHandler(state *State) *Handler {
 }
 
 // SetupTerminal enters raw mode if a PTY was allocated.
-func (h *Handler) SetupTerminal(opts *client.Options) error {
+func (h *Handler) SetupTerminal(opts *sshclient.Options) error {
 	if h.State == nil {
 		return nil
 	}

@@ -16,12 +16,12 @@ import (
 //
 // The handler recognizes the following channel requests:
 //   - pty-req          : record PTY parameters (actual PTY allocation is
-//                        delegated to the process launcher)
+//     delegated to the process launcher)
 //   - env              : collect environment variables subject to AcceptEnv
 //   - shell / exec     : run the command via ProcessLauncher.Run
 //   - subsystem        : resolve the subsystem and dispatch; internal
-//                        subsystems call Subsystem.Handler, external
-//                        subsystems are executed as processes
+//     subsystems call Subsystem.Handler, external
+//     subsystems are executed as processes
 //   - window-change    : forwarded to ProcessLauncher.Resize if supported
 //   - signal           : forwarded to ProcessLauncher.Signal if supported
 //

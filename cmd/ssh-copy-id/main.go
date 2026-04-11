@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jamesits/sshconf/pkg/sshclient"
 	"github.com/jamesits/sshconf/pkg/command"
 	"github.com/jamesits/sshconf/pkg/logger"
+	"github.com/jamesits/sshconf/pkg/sshclient"
 	"github.com/jamesits/sshconf/pkg/sshconfig"
 	"github.com/jamesits/sshconf/pkg/version"
 	"golang.org/x/crypto/ssh"

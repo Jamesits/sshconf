@@ -11,6 +11,7 @@ Config file parsers:
 - `pkg/server`: a parser for `sshd_config` that configures Golang SSH server library accordingly; read the specs with `man sshd_config`
 
 ## Code Style
+- Adhere to Golang Standard Project Layout
 - Document the higher intention with comments
 - DO NOT write unit tests unless explicitly instructed to do so
 

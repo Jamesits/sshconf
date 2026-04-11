@@ -20,8 +20,8 @@ type sessionCtx struct {
 	handlers    Handlers
 }
 
-func (s *sessionCtx) Channel() ssh.Channel          { return s.channel }
-func (s *sessionCtx) Requests() <-chan *ssh.Request { return s.requests }
+func (s *sessionCtx) Channel() ssh.Channel           { return s.channel }
+func (s *sessionCtx) Requests() <-chan *ssh.Request  { return s.requests }
 func (s *sessionCtx) ConnMetadata() ssh.ConnMetadata { return s.meta }
 func (s *sessionCtx) Permissions() *ssh.Permissions  { return s.permissions }
 func (s *sessionCtx) Options() *Options              { return s.opts }
@@ -53,13 +53,13 @@ func NewSubsystemContext(name string, channel ssh.Channel, meta ssh.ConnMetadata
 	}
 }
 
-func (s *subsystemCtx) Name() string                  { return s.name }
-func (s *subsystemCtx) Stdin() io.Reader              { return s.channel }
-func (s *subsystemCtx) Stdout() io.Writer             { return s.channel }
-func (s *subsystemCtx) Stderr() io.Writer             { return s.channel.Stderr() }
-func (s *subsystemCtx) Channel() ssh.Channel          { return s.channel }
+func (s *subsystemCtx) Name() string                   { return s.name }
+func (s *subsystemCtx) Stdin() io.Reader               { return s.channel }
+func (s *subsystemCtx) Stdout() io.Writer              { return s.channel }
+func (s *subsystemCtx) Stderr() io.Writer              { return s.channel.Stderr() }
+func (s *subsystemCtx) Channel() ssh.Channel           { return s.channel }
 func (s *subsystemCtx) ConnMetadata() ssh.ConnMetadata { return s.meta }
-func (s *subsystemCtx) Options() *Options             { return s.opts }
+func (s *subsystemCtx) Options() *Options              { return s.opts }
 
 // parseTcpForwardPayload decodes the SSH_MSG_GLOBAL_REQUEST payload for
 // tcpip-forward / cancel-tcpip-forward (RFC 4254 section 7.1).
