@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/jamesits/sshconf/pkg/logger"
-	"github.com/jamesits/sshconf/pkg/server"
+	"github.com/jamesits/sshconf/pkg/sshserver"
 	"github.com/jamesits/sshconf/pkg/version"
 )
 
@@ -20,7 +20,7 @@ func main() {
 }
 
 func run() int {
-	args := &server.CLIArgs{}
+	args := &sshserver.CLIArgs{}
 	if err := args.Parse(os.Args[1:]...); err != nil {
 		fmt.Fprintf(os.Stderr, "sshd: %v\n", err)
 		return 255
@@ -37,7 +37,7 @@ func run() int {
 		return 255
 	}
 
-	lookup := &server.Lookup{
+	lookup := &sshserver.Lookup{
 		ConfigFile:            args.ConfigFile,
 		CommandLineDirectives: cliDirectives,
 		Version:               "sshconf_" + version.Version,
@@ -59,7 +59,7 @@ func run() int {
 	if args.Validate {
 		// The Resolve call above already validated the config file;
 		// try loading host keys to ensure they are parseable.
-		if _, err := opts.SSHServerConfig(server.Handlers{}); err != nil {
+		if _, err := opts.SSHServerConfig(sshserver.Handlers{}); err != nil {
 			fmt.Fprintf(os.Stderr, "sshd: %v\n", err)
 			return 255
 		}
@@ -78,13 +78,13 @@ func run() int {
 
 	// Handlers — the default sshd wires up reasonable defaults for a
 	// drop-in replacement.
-	handlers := server.Handlers{
+	handlers := sshserver.Handlers{
 		Logger:           lgr,
-		PasswordAuth:     server.DenyPasswordAuthenticator{},
-		PublicKeyAuth:    &server.AuthorizedKeysAuthenticator{},
-		AccessController: server.SimpleAccessController{},
-		SessionHandler:   &server.DefaultSessionHandler{ProcessLauncher: &server.ExecProcessLauncher{}},
-		TcpForwarder:     &server.DefaultTcpForwarder{},
+		PasswordAuth:     sshserver.DenyPasswordAuthenticator{},
+		PublicKeyAuth:    &sshserver.AuthorizedKeysAuthenticator{},
+		AccessController: sshserver.SimpleAccessController{},
+		SessionHandler:   &sshserver.DefaultSessionHandler{ProcessLauncher: &sshserver.ExecProcessLauncher{}},
+		TcpForwarder:     &sshserver.DefaultTcpForwarder{},
 	}
 
 	// Inetd mode: serve a single connection from stdin/stdout.
@@ -121,7 +121,7 @@ func run() int {
 		wg.Add(1)
 		go func(listener net.Listener) {
 			defer wg.Done()
-			err := server.Serve(listener, opts, handlers)
+			err := sshserver.Serve(listener, opts, handlers)
 			if err != nil && !errors.Is(err, net.ErrClosed) {
 				lgr.Log("ERROR", fmt.Sprintf("serve error: %v", err))
 			}
@@ -135,9 +135,9 @@ func run() int {
 // serveInetd handles the -i (inetd) mode: treat stdin/stdout as a single
 // already-connected client and service it to completion. The stdio pair
 // is wrapped as a net.Conn and handed to the server's accept path via
-// server.ServeConn.
-func serveInetd(opts *server.Options, handlers server.Handlers) int {
-	if err := server.ServeConn(newStdioConn(), opts, handlers); err != nil {
+// sshserver.ServeConn.
+func serveInetd(opts *sshserver.Options, handlers sshserver.Handlers) int {
+	if err := sshserver.ServeConn(newStdioConn(), opts, handlers); err != nil {
 		fmt.Fprintf(os.Stderr, "sshd: %v\n", err)
 		return 255
 	}
@@ -179,7 +179,7 @@ func (a *stdioAddr) String() string  { return a.name }
 // printConfig writes the resolved options to stdout in a readable form.
 // The format mimics `sshd -T` output loosely — it is not a round-trip
 // representation of sshd_config.
-func printConfig(opts *server.Options) {
+func printConfig(opts *sshserver.Options) {
 	fmt.Printf("addressfamily %s\n", strOrDefault(opts.AddressFamily, "any"))
 	for _, p := range opts.Ports {
 		fmt.Printf("port %d\n", p)

@@ -6,22 +6,22 @@ import (
 	"net"
 	"sync"
 
-	"github.com/jamesits/sshconf/pkg/client"
+	"github.com/jamesits/sshconf/pkg/sshclient"
 	"golang.org/x/crypto/ssh"
 )
 
-// Handler implements client.ForwardHandler.
+// Handler implements sshclient.ForwardHandler.
 type Handler struct {
-	Logger client.Logger
+	Logger sshclient.Logger
 }
 
 // NewHandler creates a Handler with the given logger.
-func NewHandler(logger client.Logger) *Handler {
+func NewHandler(logger sshclient.Logger) *Handler {
 	return &Handler{Logger: logger}
 }
 
 // SetupForwarding sets up local, remote, and dynamic port forwarding.
-func (h *Handler) SetupForwarding(sshClient *ssh.Client, opts *client.Options) error {
+func (h *Handler) SetupForwarding(sshClient *ssh.Client, opts *sshclient.Options) error {
 	bindHost := "127.0.0.1"
 	if opts.GatewayPorts != nil && *opts.GatewayPorts {
 		bindHost = ""
@@ -60,7 +60,7 @@ func (h *Handler) SetupForwarding(sshClient *ssh.Client, opts *client.Options) e
 	return firstErr
 }
 
-func (h *Handler) setupLocalForward(sshClient *ssh.Client, fwd client.Forward, defaultBind string) error {
+func (h *Handler) setupLocalForward(sshClient *ssh.Client, fwd sshclient.Forward, defaultBind string) error {
 	bind := defaultBind
 	if fwd.BindAddress != "" {
 		bind = fwd.BindAddress
@@ -97,7 +97,7 @@ func (h *Handler) setupLocalForward(sshClient *ssh.Client, fwd client.Forward, d
 	return nil
 }
 
-func (h *Handler) setupRemoteForward(sshClient *ssh.Client, fwd client.Forward, defaultBind string) error {
+func (h *Handler) setupRemoteForward(sshClient *ssh.Client, fwd sshclient.Forward, defaultBind string) error {
 	bind := defaultBind
 	if fwd.BindAddress != "" {
 		bind = fwd.BindAddress

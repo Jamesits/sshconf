@@ -5,12 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jamesits/sshconf/pkg/client"
+	"github.com/jamesits/sshconf/pkg/sshclient"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
 
-// Handler implements client.SessionConfigurator.
+// Handler implements sshclient.SessionConfigurator.
 type Handler struct {
 	PTYRequested bool // set after PTY is successfully requested
 	HasCommand   bool // whether a remote command was specified
@@ -22,7 +22,7 @@ func NewHandler(hasCommand bool) *Handler {
 }
 
 // ConfigureSession sets up environment variables and PTY allocation.
-func (h *Handler) ConfigureSession(session *ssh.Session, opts *client.Options) error {
+func (h *Handler) ConfigureSession(session *ssh.Session, opts *sshclient.Options) error {
 	// Environment variables
 	for _, env := range opts.SetEnv {
 		if k, v, ok := strings.Cut(env, "="); ok {

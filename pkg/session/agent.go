@@ -5,16 +5,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jamesits/sshconf/pkg/client"
+	"github.com/jamesits/sshconf/pkg/sshclient"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
 
-// AgentHandler implements client.AgentForwarder.
+// AgentHandler implements sshclient.AgentForwarder.
 type AgentHandler struct{}
 
 // ForwardAgent enables SSH agent forwarding on a session.
-func (h *AgentHandler) ForwardAgent(sshClient *ssh.Client, session *ssh.Session, opts *client.Options) error {
+func (h *AgentHandler) ForwardAgent(sshClient *ssh.Client, session *ssh.Session, opts *sshclient.Options) error {
 	agentPath := "no"
 	if opts.ForwardAgent != nil {
 		agentPath = *opts.ForwardAgent

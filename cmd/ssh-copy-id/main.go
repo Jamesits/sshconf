@@ -8,11 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jamesits/sshconf/pkg/client"
+	"github.com/jamesits/sshconf/pkg/sshclient"
 	"github.com/jamesits/sshconf/pkg/command"
 	"github.com/jamesits/sshconf/pkg/logger"
 	"github.com/jamesits/sshconf/pkg/sshconfig"
-	clienttui "github.com/jamesits/sshconf/pkg/tui/client"
 	"github.com/jamesits/sshconf/pkg/version"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -55,7 +54,7 @@ func run() int {
 	}
 
 	// Parse destination
-	destUser, destHost := client.ParseDestination(args.destination)
+	destUser, destHost := sshclient.ParseDestination(args.destination)
 
 	// Build config resolution
 	cliDirectives, err := buildDirectives(args)
@@ -64,13 +63,13 @@ func run() int {
 		return 1
 	}
 
-	uiHandler := clienttui.New()
+	uiHandler := sshclient.New()
 	uiHandler.Host = destHost
 	uiHandler.User = destUser
 
 	lgr := logger.New("", 0, false)
 
-	handlers := client.Handlers{
+	handlers := sshclient.Handlers{
 		UI:              uiHandler,
 		CommandExecutor: &command.Executor{},
 		Logger:          lgr,
@@ -81,7 +80,7 @@ func run() int {
 		lookupPort, _ = strconv.Atoi(args.port)
 	}
 
-	lookup := &client.Lookup{
+	lookup := &sshclient.Lookup{
 		Host:                  destHost,
 		User:                  destUser,
 		Port:                  lookupPort,

@@ -11,13 +11,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/jamesits/sshconf/pkg/client"
 	"github.com/jamesits/sshconf/pkg/command"
 	"github.com/jamesits/sshconf/pkg/forward"
 	"github.com/jamesits/sshconf/pkg/logger"
 	"github.com/jamesits/sshconf/pkg/session"
+	"github.com/jamesits/sshconf/pkg/sshclient"
 	"github.com/jamesits/sshconf/pkg/terminal"
-	clienttui "github.com/jamesits/sshconf/pkg/tui/client"
 	"github.com/jamesits/sshconf/pkg/version"
 	"golang.org/x/crypto/ssh"
 )
@@ -27,8 +26,8 @@ func main() {
 }
 
 func run() int {
-	args := &client.CLIArgs{}
-	if err := args.Parse(client.ModeOptionsHostCommand, os.Args[1:]...); err != nil {
+	args := &sshclient.CLIArgs{}
+	if err := args.Parse(sshclient.ModeOptionsHostCommand, os.Args[1:]...); err != nil {
 		fmt.Fprintf(os.Stderr, "ssh: %v\n", err)
 		return 255
 	}
@@ -38,7 +37,7 @@ func run() int {
 		return 0
 	}
 
-	uiHandler := clienttui.New()
+	uiHandler := sshclient.New()
 
 	if args.QueryType != "" {
 		if err := uiHandler.RunQuery(args.QueryType); err != nil {
@@ -49,12 +48,12 @@ func run() int {
 	}
 
 	if args.Destination == "" {
-		uiHandler.Usage("ssh", client.ModeOptionsHostCommand)
+		uiHandler.Usage("ssh", sshclient.ModeOptionsHostCommand)
 		return 255
 	}
 
 	// Parse destination
-	destUser, destHost := client.ParseDestination(args.Destination)
+	destUser, destHost := sshclient.ParseDestination(args.Destination)
 
 	// Build directives from CLI flags
 	cliDirectives, err := args.Directives()
@@ -108,7 +107,7 @@ func run() int {
 	uiHandler.User = lookupUser
 
 	// Handlers
-	handlers := client.Handlers{
+	handlers := sshclient.Handlers{
 		UI:              uiHandler,
 		Session:         sessHandler,
 		Forwarding:      forward.NewHandler(lgr),
@@ -118,7 +117,7 @@ func run() int {
 		Logger:          lgr,
 	}
 
-	lookup := &client.Lookup{
+	lookup := &sshclient.Lookup{
 		Host:                  destHost,
 		User:                  lookupUser,
 		Port:                  lookupPort,
