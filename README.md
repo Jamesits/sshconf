@@ -65,3 +65,7 @@ in `golang.org/x/crypto/ssh`. If configured, they are silently filtered out.
 | `sk-ecdsa-sha2-nistp256@openssh.com` | FIDO/U2F security key (ECDSA) |
 | `sk-ssh-ed25519-cert-v01@openssh.com` | Certificate variant |
 | `sk-ecdsa-sha2-nistp256-cert-v01@openssh.com` | Certificate variant |
+
+## Thanks
+
+- [@oott123](https://github.com/oott123) sponsored a lot AI credits used in writing this project
