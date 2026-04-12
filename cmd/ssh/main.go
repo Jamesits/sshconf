@@ -16,6 +16,7 @@ import (
 	"github.com/jamesits/sshconf/pkg/logger"
 	"github.com/jamesits/sshconf/pkg/session"
 	"github.com/jamesits/sshconf/pkg/sshclient"
+	"github.com/jamesits/sshconf/pkg/stdio"
 	"github.com/jamesits/sshconf/pkg/terminal"
 	"github.com/jamesits/sshconf/pkg/version"
 	"golang.org/x/crypto/ssh"
@@ -37,7 +38,7 @@ func run() int {
 		return 0
 	}
 
-	uiHandler := sshclient.New()
+	uiHandler := sshclient.NewTUI(stdio.NewTerminal(os.Stdin, os.Stdout, os.Stderr))
 
 	if args.QueryType != "" {
 		if err := uiHandler.RunQuery(args.QueryType); err != nil {
@@ -110,11 +111,11 @@ func run() int {
 	handlers := sshclient.Handlers{
 		UI:              uiHandler,
 		Session:         sessHandler,
-		Forwarding:      forward.NewHandler(lgr),
+		Forwarding:      forward.NewHandler(lgr.Child("forward")),
 		AgentForwarding: &session.AgentHandler{},
 		Terminal:        terminal.NewHandler(termState),
 		CommandExecutor: &command.Executor{},
-		Logger:          lgr,
+		Logger:          lgr.Child("sshclient"),
 	}
 
 	lookup := &sshclient.Lookup{

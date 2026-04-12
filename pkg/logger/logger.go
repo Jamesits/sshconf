@@ -2,14 +2,20 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
 
 // Logger implements client.Logger for SSH diagnostic output.
 type Logger struct {
-	level   int
-	logFile *os.File
+	state *state
+	name  string
+}
+
+type state struct {
+	level int
+	out   io.Writer
 }
 
 // Levels maps SSH log level names to numeric values.
@@ -27,25 +33,46 @@ var Levels = map[string]int{
 
 // New creates a Logger. verbosity adds to the INFO base level.
 func New(logFilePath string, verbosity int, quiet bool) *Logger {
-	l := &Logger{level: 2} // INFO
+	s := &state{
+		level: 2, // INFO
+		out:   os.Stderr,
+	}
 	if quiet {
-		l.level = -1
+		s.level = -1
 	} else if verbosity > 0 {
-		l.level = 2 + verbosity // VERBOSE=3, DEBUG=4, etc.
+		s.level = 2 + verbosity // VERBOSE=3, DEBUG=4, etc.
 	}
 	if logFilePath != "" {
 		f, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err == nil {
-			l.logFile = f
+			s.out = f
 		}
 	}
-	return l
+	return &Logger{state: s}
+}
+
+// Child returns a logger that shares output and level with the parent but
+// prefixes messages with the given component name.
+func (l *Logger) Child(name string) *Logger {
+	if l == nil {
+		return nil
+	}
+	childName := name
+	if l.name != "" && name != "" {
+		childName = l.name + "." + name
+	} else if l.name != "" {
+		childName = l.name
+	}
+	return &Logger{
+		state: l.state,
+		name:  childName,
+	}
 }
 
 // SetLevel sets the log level by name.
 func (l *Logger) SetLevel(levelName string) {
 	if lvl, ok := Levels[strings.ToUpper(levelName)]; ok {
-		l.level = lvl
+		l.state.level = lvl
 	}
 }
 
@@ -55,20 +82,19 @@ func (l *Logger) Log(level, msg string) {
 	if !ok {
 		msgLevel = 2
 	}
-	if msgLevel > l.level {
+	if msgLevel > l.state.level {
 		return
 	}
-	out := os.Stderr
-	if l.logFile != nil {
-		out = l.logFile
+	if l.name != "" {
+		msg = l.name + ": " + msg
 	}
 	prefix := strings.ToLower(level)
 	if prefix == "info" {
 		prefix = ""
 	}
 	if prefix != "" {
-		fmt.Fprintf(out, "debug%d: %s\n", msgLevel-2, msg)
+		fmt.Fprintf(l.state.out, "debug%d: %s\n", msgLevel-2, msg)
 	} else {
-		fmt.Fprintf(out, "%s\n", msg)
+		fmt.Fprintf(l.state.out, "%s\n", msg)
 	}
 }

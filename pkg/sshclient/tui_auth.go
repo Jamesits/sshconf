@@ -10,7 +10,7 @@ import (
 
 // readPassword reads a password from the terminal with echo disabled.
 func (t *TUI) readPassword() (string, error) {
-	pw, err := term.ReadPassword(int(t.Stdin.Fd()))
+	pw, err := term.ReadPassword(int(t.Terminal.Fd()))
 	fmt.Fprintf(t.Stderr, "\n")
 	if err != nil {
 		return "", err

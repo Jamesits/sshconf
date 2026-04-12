@@ -3,27 +3,28 @@ package sshkeygen
 import (
 	"fmt"
 
+	"github.com/jamesits/sshconf/pkg/stdio"
 	"github.com/jamesits/sshconf/pkg/version"
 )
 
 // Run dispatches to the appropriate action based on cfg and returns a
 // process exit code.
-func Run(cfg *Config) int {
+func Run(cfg *Config, streams stdio.TerminalStreams) int {
 	if cfg.Version {
-		fmt.Printf("ssh-keygen (sshconf) %s\n", version.Version)
+		fmt.Fprintf(streams.Stdout, "ssh-keygen (sshconf) %s\n", version.Version)
 		return 0
 	}
 
 	switch {
 	case cfg.Fingerprint:
-		return Fingerprint(cfg)
+		return Fingerprint(cfg, streams)
 	case cfg.ChangePass:
-		return ChangePassphrase(cfg)
+		return ChangePassphrase(cfg, streams)
 	case cfg.ShowPub:
-		return ShowPublicKey(cfg)
+		return ShowPublicKey(cfg, streams)
 	case cfg.ChangeComment:
-		return ChangeComment(cfg)
+		return ChangeComment(cfg, streams)
 	default:
-		return Generate(cfg)
+		return Generate(cfg, streams)
 	}
 }

@@ -3,17 +3,14 @@
 package sshclient
 
 import (
-	"io"
-	"os"
+	"github.com/jamesits/sshconf/pkg/stdio"
 )
 
 // TUI provides terminal-based user interaction for SSH client operations.
 // Its methods are directly compatible with the corresponding fields of
 // [UI], so callers can assign them without wrapping closures.
 type TUI struct {
-	Stdin  *os.File  // terminal input (password reads need an fd)
-	Stdout io.Writer // data output (e.g. query results, config dump)
-	Stderr io.Writer // prompts and messages
+	stdio.TerminalStreams
 
 	// Host and User identify the remote account and are used to render
 	// the password prompt. Set these before PasswordCallback is invoked.
@@ -21,11 +18,9 @@ type TUI struct {
 	User string
 }
 
-// New returns a TUI wired to the standard file descriptors.
-func New() *TUI {
+// NewTUI returns a TUI wired to the supplied streams.
+func NewTUI(streams stdio.TerminalStreams) *TUI {
 	return &TUI{
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+		TerminalStreams: streams,
 	}
 }

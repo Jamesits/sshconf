@@ -3,25 +3,27 @@ package sshkeyscan
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/jamesits/sshconf/pkg/stdio"
 	"github.com/jamesits/sshconf/pkg/version"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // Run executes the ssh-keyscan action based on cfg and returns a process
 // exit code.
-func Run(cfg *Config) int {
+func Run(cfg *Config, streams stdio.Streams) int {
 	if cfg.Version {
-		fmt.Printf("ssh-keyscan (sshconf) %s\n", version.Version)
+		fmt.Fprintf(streams.Stdout, "ssh-keyscan (sshconf) %s\n", version.Version)
 		return 0
 	}
 
 	if len(cfg.Hosts) == 0 && cfg.HostFile == "" {
-		fmt.Fprintf(os.Stderr, "usage: ssh-keyscan [-46cDHv] [-f file] [-O option] [-p port] [-T timeout] [-t type] [host | addrlist namelist]\n")
+		fmt.Fprintf(streams.Stderr, "usage: ssh-keyscan [-46cDHv] [-f file] [-O option] [-p port] [-T timeout] [-t type] [host | addrlist namelist]\n")
 		return 1
 	}
 
@@ -31,17 +33,21 @@ func Run(cfg *Config) int {
 	}
 
 	if cfg.HostFile != "" {
-		var r *os.File
+		var (
+			r   io.Reader
+			err error
+		)
 		if cfg.HostFile == "-" {
-			r = os.Stdin
+			r = streams.Stdin
 		} else {
-			var err error
-			r, err = os.Open(cfg.HostFile)
+			f, openErr := os.Open(cfg.HostFile)
+			err = openErr
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "ssh-keyscan: %v\n", err)
+				fmt.Fprintf(streams.Stderr, "ssh-keyscan: %v\n", err)
 				return 1
 			}
-			defer r.Close()
+			defer f.Close()
+			r = f
 		}
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
@@ -71,17 +77,17 @@ func Run(cfg *Config) int {
 				defer mu.Unlock()
 				if err != nil {
 					if cfg.Verbose {
-						fmt.Fprintf(os.Stderr, "# %s:%d %s: %v\n", host, cfg.Port, keyType, err)
+						fmt.Fprintf(streams.Stderr, "# %s:%d %s: %v\n", host, cfg.Port, keyType, err)
 					}
 					return
 				}
 				if cfg.HashHosts {
-					fmt.Printf("%s %s\n", knownhosts.HashHostname(host), key)
+					fmt.Fprintf(streams.Stdout, "%s %s\n", knownhosts.HashHostname(host), key)
 				} else {
 					if cfg.Port != 22 {
-						fmt.Printf("[%s]:%d %s\n", host, cfg.Port, key)
+						fmt.Fprintf(streams.Stdout, "[%s]:%d %s\n", host, cfg.Port, key)
 					} else {
-						fmt.Printf("%s %s\n", host, key)
+						fmt.Fprintf(streams.Stdout, "%s %s\n", host, key)
 					}
 				}
 			}(host, keyType)

@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jamesits/sshconf/pkg/stdio"
 	"golang.org/x/crypto/ssh"
 )
 
 // Fingerprint prints the fingerprint of a key file and returns an exit code.
-func Fingerprint(cfg *Config) int {
+func Fingerprint(cfg *Config, streams stdio.TerminalStreams) int {
 	keyFile := cfg.KeyFile
 	if keyFile == "" {
 		home, _ := os.UserHomeDir()
@@ -22,7 +23,7 @@ func Fingerprint(cfg *Config) int {
 			}
 		}
 		if keyFile == "" {
-			fmt.Fprintf(os.Stderr, "ssh-keygen: No key file specified and no default key found\n")
+			fmt.Fprintf(streams.Stderr, "ssh-keygen: No key file specified and no default key found\n")
 			return 1
 		}
 	}
@@ -35,7 +36,7 @@ func Fingerprint(cfg *Config) int {
 
 	data, err := os.ReadFile(keyFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ssh-keygen: %v\n", err)
+		fmt.Fprintf(streams.Stderr, "ssh-keygen: %v\n", err)
 		return 1
 	}
 
@@ -43,7 +44,7 @@ func Fingerprint(cfg *Config) int {
 	if err != nil {
 		signer, err := ssh.ParsePrivateKey(data)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ssh-keygen: %s is not a key file\n", keyFile)
+			fmt.Fprintf(streams.Stderr, "ssh-keygen: %s is not a key file\n", keyFile)
 			return 1
 		}
 		pubKey = signer.PublicKey()
@@ -51,7 +52,7 @@ func Fingerprint(cfg *Config) int {
 
 	fp := FingerprintString(pubKey, cfg.HashAlgo)
 	size := KeySize(pubKey)
-	fmt.Printf("%d %s %s (%s)\n", size, fp, comment, KeyTypeName(pubKey))
+	fmt.Fprintf(streams.Stdout, "%d %s %s (%s)\n", size, fp, comment, KeyTypeName(pubKey))
 
 	return 0
 }

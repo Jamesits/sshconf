@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jamesits/sshconf/pkg/stdio"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
@@ -70,7 +71,7 @@ func KeyTypeName(format string) string {
 	}
 }
 
-func addKey(client agent.ExtendedAgent, path string, confirm bool, lifetime uint32) error {
+func addKey(client agent.ExtendedAgent, path string, confirm bool, lifetime uint32, streams stdio.TerminalStreams) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -85,9 +86,9 @@ func addKey(client agent.ExtendedAgent, path string, confirm bool, lifetime uint
 		}
 
 		for attempt := 0; attempt < 3; attempt++ {
-			fmt.Fprintf(os.Stderr, "Enter passphrase for %s: ", path)
-			pw, err := term.ReadPassword(int(os.Stdin.Fd()))
-			fmt.Fprintf(os.Stderr, "\n")
+			fmt.Fprintf(streams.Stderr, "Enter passphrase for %s: ", path)
+			pw, err := term.ReadPassword(int(streams.Terminal.Fd()))
+			fmt.Fprintf(streams.Stderr, "\n")
 			if err != nil {
 				return err
 			}
@@ -96,7 +97,7 @@ func addKey(client agent.ExtendedAgent, path string, confirm bool, lifetime uint
 				break
 			}
 			if attempt < 2 {
-				fmt.Fprintf(os.Stderr, "Bad passphrase, try again.\n")
+				fmt.Fprintf(streams.Stderr, "Bad passphrase, try again.\n")
 			}
 		}
 		if privKey == nil {

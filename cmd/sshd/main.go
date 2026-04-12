@@ -49,6 +49,13 @@ func run() int {
 		return 255
 	}
 
+	// Logger.
+	lgr := logger.New(args.LogFile, args.DebugLevel, args.Quiet)
+	if opts.LogLevel != nil {
+		lgr.SetLevel(*opts.LogLevel)
+	}
+	serverLogger := lgr.Child("sshserver")
+
 	// -G / -T : print resolved config and exit.
 	if args.PrintConfig || args.TestMode {
 		printConfig(opts)
@@ -59,17 +66,11 @@ func run() int {
 	if args.Validate {
 		// The Resolve call above already validated the config file;
 		// try loading host keys to ensure they are parseable.
-		if _, err := opts.SSHServerConfig(sshserver.Handlers{}); err != nil {
+		if _, err := opts.SSHServerConfig(sshserver.Handlers{Logger: serverLogger}); err != nil {
 			fmt.Fprintf(os.Stderr, "sshd: %v\n", err)
 			return 255
 		}
 		return 0
-	}
-
-	// Logger.
-	lgr := logger.New(args.LogFile, args.DebugLevel, args.Quiet)
-	if opts.LogLevel != nil {
-		lgr.SetLevel(*opts.LogLevel)
 	}
 
 	// Register built-in subsystems. An application that wants to expose
@@ -79,7 +80,7 @@ func run() int {
 	// Handlers — the default sshd wires up reasonable defaults for a
 	// drop-in replacement.
 	handlers := sshserver.Handlers{
-		Logger:           lgr,
+		Logger:           serverLogger,
 		PasswordAuth:     sshserver.DenyPasswordAuthenticator{},
 		PublicKeyAuth:    &sshserver.AuthorizedKeysAuthenticator{},
 		AccessController: sshserver.SimpleAccessController{},

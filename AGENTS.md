@@ -9,5 +9,6 @@ Config file parsers:
 - Adhere to Golang Standard Project Layout
 - Document the higher intention with comments
 - DO NOT write unit tests unless explicitly instructed to do so
+- DO NOT implicitly operate stdio (e.g. use `fmt.Printf`) or the TTY attached to stdin; always use explicitly passed in `stdio.Streams` or `stdio.TermianlStreams`
 ## Compilation
 Always full recompile with `goreleaser build --snapshot --clean` and use the artifacts under `dist/`.

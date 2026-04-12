@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jamesits/sshconf/pkg/stdio"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/term"
 )
 
 // ShowPublicKey extracts and prints the public key from a private key file.
-func ShowPublicKey(cfg *Config) int {
+func ShowPublicKey(cfg *Config, streams stdio.TerminalStreams) int {
 	keyFile := cfg.KeyFile
 	if keyFile == "" {
 		home, _ := os.UserHomeDir()
@@ -19,7 +19,7 @@ func ShowPublicKey(cfg *Config) int {
 
 	data, err := os.ReadFile(keyFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ssh-keygen: %v\n", err)
+		fmt.Fprintf(streams.Stderr, "ssh-keygen: %v\n", err)
 		return 1
 	}
 
@@ -27,24 +27,22 @@ func ShowPublicKey(cfg *Config) int {
 	signer, err = ssh.ParsePrivateKey(data)
 	if err != nil {
 		if _, ok := err.(*ssh.PassphraseMissingError); ok {
-			fmt.Fprintf(os.Stderr, "Enter passphrase: ")
-			pw, err := term.ReadPassword(int(os.Stdin.Fd()))
-			fmt.Fprintf(os.Stderr, "\n")
+			pw, err := readPassword(streams, "Enter passphrase: ")
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "ssh-keygen: %v\n", err)
+				fmt.Fprintf(streams.Stderr, "ssh-keygen: %v\n", err)
 				return 1
 			}
 			signer, err = ssh.ParsePrivateKeyWithPassphrase(data, pw)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "ssh-keygen: incorrect passphrase\n")
+				fmt.Fprintf(streams.Stderr, "ssh-keygen: incorrect passphrase\n")
 				return 1
 			}
 		} else {
-			fmt.Fprintf(os.Stderr, "ssh-keygen: %v\n", err)
+			fmt.Fprintf(streams.Stderr, "ssh-keygen: %v\n", err)
 			return 1
 		}
 	}
 
-	fmt.Print(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+	fmt.Fprint(streams.Stdout, string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
 	return 0
 }
