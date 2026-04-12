@@ -2,6 +2,33 @@ package sshconfig
 
 import "strings"
 
+// ParseDestination splits a destination string into user and host components.
+// Handles: user@host, host, user@[ipv6], [ipv6]
+func ParseDestination(dest string) (user, host string) {
+	// Handle [ipv6] notation
+	if strings.HasPrefix(dest, "[") {
+		if idx := strings.Index(dest, "]"); idx >= 0 {
+			return "", dest[1:idx]
+		}
+		return "", dest
+	}
+
+	// Check for user@host
+	if atIdx := strings.LastIndex(dest, "@"); atIdx >= 0 {
+		user = dest[:atIdx]
+		host = dest[atIdx+1:]
+		// Strip brackets from [ipv6]
+		if strings.HasPrefix(host, "[") {
+			if idx := strings.Index(host, "]"); idx >= 0 {
+				host = host[1:idx]
+			}
+		}
+		return user, host
+	}
+
+	return "", dest
+}
+
 // SplitHostPort splits a host:port string, handling [IPv6]:port notation.
 // Returns host, port, and a flag indicating whether the split succeeded.
 // For a bare IPv6 address without brackets, returns the full string as host

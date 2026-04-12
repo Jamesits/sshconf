@@ -17,6 +17,7 @@ import (
 	"github.com/jamesits/sshconf/pkg/logger"
 	"github.com/jamesits/sshconf/pkg/session"
 	"github.com/jamesits/sshconf/pkg/sshclient"
+	"github.com/jamesits/sshconf/pkg/sshconfig"
 	"github.com/jamesits/sshconf/pkg/stdio"
 	"github.com/jamesits/sshconf/pkg/terminal"
 	"github.com/jamesits/sshconf/pkg/version"
@@ -55,7 +56,7 @@ func run() int {
 	}
 
 	// Parse destination
-	destUser, destHost := sshclient.ParseDestination(args.Destination)
+	_, destHost := sshconfig.ParseDestination(args.Destination)
 
 	// Build directives from CLI flags
 	cliDirectives, err := args.Directives()
@@ -64,35 +65,14 @@ func run() int {
 		return 255
 	}
 
-	// Determine user: user@host wins over -l
-	lookupUser := destUser
-	if lookupUser == "" {
-		lookupUser = args.User
+	lookupUser := args.LookupUser()
+	lookupPort, err := args.LookupPort()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ssh: %v\n", err)
+		return 255
 	}
-
-	// Determine port
-	lookupPort := 0
-	if args.Port != "" {
-		p, err := strconv.Atoi(args.Port)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ssh: bad port '%s'\n", args.Port)
-			return 255
-		}
-		lookupPort = p
-	}
-
-	// Remote command
-	remoteCmd := strings.Join(args.Command, " ")
-
-	// Session type
-	sessionType := ""
-	if args.NoCommand {
-		sessionType = "none"
-	} else if args.Subsystem {
-		sessionType = "subsystem"
-	} else if remoteCmd != "" {
-		sessionType = "exec"
-	}
+	remoteCmd := args.RemoteCommand()
+	sessionType := args.SessionType()
 
 	// Logger
 	lgr := logger.New(args.LogFile, args.Verbosity, args.Quiet)

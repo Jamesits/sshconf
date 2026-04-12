@@ -9,6 +9,7 @@ import (
 
 	"github.com/jamesits/sshconf/pkg/command"
 	"github.com/jamesits/sshconf/pkg/sshclient"
+	"github.com/jamesits/sshconf/pkg/sshconfig"
 	"github.com/jamesits/sshconf/pkg/stdio"
 	"github.com/jamesits/sshconf/pkg/version"
 	"golang.org/x/crypto/ssh"
@@ -45,7 +46,7 @@ func Run(cfg *Config, streams stdio.TerminalStreams, lgr sshclient.Logger) int {
 		return 0
 	}
 
-	destUser, destHost := sshclient.ParseDestination(cfg.Destination)
+	destUser, destHost := sshconfig.ParseDestination(cfg.Destination)
 
 	cliDirectives, err := cfg.buildDirectives()
 	if err != nil {

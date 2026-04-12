@@ -2,6 +2,7 @@ package sshclient
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jamesits/sshconf/pkg/sshconfig"
@@ -63,6 +64,51 @@ type CLIArgs struct {
 
 	// directives collects config directives derived from CLI flags.
 	directives []sshconfig.Directive
+}
+
+// LookupUser returns the effective user for host lookup and connection setup.
+// An explicit user in the destination takes precedence over -l.
+func (a *CLIArgs) LookupUser() string {
+	destUser, _ := sshconfig.ParseDestination(a.Destination)
+	if destUser != "" {
+		return destUser
+	}
+
+	return a.User
+}
+
+// LookupPort returns the explicitly requested port, if any, in numeric form.
+func (a *CLIArgs) LookupPort() (int, error) {
+	if a.Port == "" {
+		return 0, nil
+	}
+
+	port, err := strconv.Atoi(a.Port)
+	if err != nil {
+		return 0, fmt.Errorf("bad port '%s'", a.Port)
+	}
+
+	return port, nil
+}
+
+// RemoteCommand joins positional command arguments into the exec payload used
+// for config resolution and session setup.
+func (a *CLIArgs) RemoteCommand() string {
+	return strings.Join(a.Command, " ")
+}
+
+// SessionType returns the session type implied by the parsed CLI flags.
+func (a *CLIArgs) SessionType() string {
+	switch {
+	case a.NoCommand:
+		return "none"
+	case a.Subsystem:
+		return "subsystem"
+	case a.RemoteCommand() != "":
+		return "exec"
+	default:
+		return ""
+	}
 }
 
 // Directives returns the config directives derived from CLI flags,
@@ -368,33 +414,6 @@ func (a *CLIArgs) consumePositional(args []string, mode ParseMode) {
 		}
 		a.Command = append(a.Command, args...)
 	}
-}
-
-// ParseDestination splits a destination string into user and host components.
-// Handles: user@host, host, user@[ipv6], [ipv6]
-func ParseDestination(dest string) (user, host string) {
-	// Handle [ipv6] notation
-	if strings.HasPrefix(dest, "[") {
-		if idx := strings.Index(dest, "]"); idx >= 0 {
-			return "", dest[1:idx]
-		}
-		return "", dest
-	}
-
-	// Check for user@host
-	if atIdx := strings.LastIndex(dest, "@"); atIdx >= 0 {
-		user = dest[:atIdx]
-		host = dest[atIdx+1:]
-		// Strip brackets from [ipv6]
-		if strings.HasPrefix(host, "[") {
-			if idx := strings.Index(host, "]"); idx >= 0 {
-				host = host[1:idx]
-			}
-		}
-		return user, host
-	}
-
-	return "", dest
 }
 
 // convertForwardSpec converts CLI-style forward specs (colon-separated) to
