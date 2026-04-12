@@ -2,7 +2,7 @@
 
 Parse `ssh_config` into Golang SSH library so the end users don't have to write another config file.
 
-![Project Status - Development](https://img.shields.io/badge/Project_Status-Development-red)
+![Project Status - Premature](https://img.shields.io/badge/Project_Status-Premature-yellow)
 ![100% AI Code](https://img.shields.io/badge/AI_Code-100%25-blue)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jamesits/sshconf.svg)](https://pkg.go.dev/github.com/jamesits/sshconf)
 
