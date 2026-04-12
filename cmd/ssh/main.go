@@ -149,31 +149,31 @@ func run() int {
 
 	// Post-resolve TTY override
 	if args.NoTTY {
-		opts.RequestTTY = strPtr("no")
+		opts.RequestTTY = new("no")
 	} else if args.TTYCount >= 2 {
-		opts.RequestTTY = strPtr("force")
+		opts.RequestTTY = new("force")
 	} else if args.TTYCount == 1 {
-		opts.RequestTTY = strPtr("yes")
+		opts.RequestTTY = new("yes")
 	}
 
 	// Post-resolve verbosity
 	if args.Quiet {
-		opts.LogLevel = strPtr("QUIET")
+		opts.LogLevel = new("QUIET")
 	} else if args.Verbosity > 0 {
 		switch args.Verbosity {
 		case 1:
-			opts.LogLevel = strPtr("VERBOSE")
+			opts.LogLevel = new("VERBOSE")
 		case 2:
-			opts.LogLevel = strPtr("DEBUG")
+			opts.LogLevel = new("DEBUG")
 		default:
-			opts.LogLevel = strPtr("DEBUG3")
+			opts.LogLevel = new("DEBUG3")
 		}
 	}
 
 	// Stdio forwarding mode
 	if args.StdioFwd != "" {
-		opts.SessionType = strPtr("none")
-		opts.RequestTTY = strPtr("no")
+		opts.SessionType = new("none")
+		opts.RequestTTY = new("no")
 		v := true
 		opts.ClearAllForwardings = &v
 		opts.LocalForward = nil
@@ -370,5 +370,3 @@ func signalNumber(sig string) int {
 	}
 	return 0
 }
-
-func strPtr(s string) *string { return &s }
