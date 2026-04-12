@@ -1,34 +1,31 @@
 # Unsupported Server Features
 
-This document lists `sshd_config(5)` directives that `pkg/server` parses but
-does not fully enforce, along with algorithms recognized by OpenSSH but absent
-from `golang.org/x/crypto/ssh`. Unless noted otherwise, affected directives
-are silently accepted — the resolved `Options` value carries them for
-inspection, but the runtime behavior matches OpenSSH defaults instead.
+This document lists `sshd_config(5)` directives that `pkg/sshserver` does not
+implement, only partially enforces, or handles differently from OpenSSH.
+Unless noted otherwise, affected directives are still parsed and stored on the
+resolved `Options` value so caller-supplied handlers can inspect them.
 
-## Directives Parsed But Not Enforced
+## Unsupported Or Partial Behavior
 
-The parser accepts these keywords and stores them on `Options`, but
-`pkg/server` does not change its runtime behavior based on their values.
-A handler implementation can consult `Options` directly if it wants to
-honor the configured policy.
+The parser accepts all of the directives below, but the built-in runtime either
+does not enforce them, only applies part of their behavior, or requires a
+custom handler to honor them fully.
 
 ### Authentication
 
 | Directive | Status |
 |---|---|
-| `AuthenticationMethods` | Parsed; `x/crypto/ssh` enforces its own ordering via enabled callbacks |
+| `AuthenticationMethods` | Parsed; not enforced. `x/crypto/ssh` only exposes whichever auth callbacks are wired, not OpenSSH's multi-step method lists |
 | `UsePAM`, `PAMServiceName` | Parsed; no PAM integration |
 | `KerberosAuthentication`, `KerberosGetAFSToken`, `KerberosOrLocalPasswd`, `KerberosTicketCleanup` | Parsed; no Kerberos integration |
 | `GSSAPICleanupCredentials`, `GSSAPIStrictAcceptorCheck` | Parsed; `Handlers.GSSAPIServer` is the extension point |
 | `PubkeyAuthOptions` (`touch-required`, `verify-required`) | Parsed; not applied to FIDO keys |
 | `HostbasedAuthentication`, `HostbasedAcceptedAlgorithms`, `HostbasedUsesNameFromPacketOnly` | Interface defined (`HostbasedAuthenticator`), not wired into `ssh.ServerConfig` — `x/crypto/ssh` does not expose a hostbased auth callback |
 | `IgnoreRhosts`, `IgnoreUserKnownHosts` | Parsed; consulted only by a hostbased implementation |
-| `PermitRootLogin` values `prohibit-password` and `forced-commands-only` | Parsed; only `no` is enforced by `SimpleAccessController` |
+| `PermitRootLogin` | Parsed; the built-in access controller does not consult it |
 | `TrustedUserCAKeys`, `RevokedKeys` | Parsed; `AuthorizedKeysAuthenticator` does not consult them |
 | `AuthorizedKeysCommand`, `AuthorizedKeysCommandUser`, `AuthorizedPrincipalsFile`, `AuthorizedPrincipalsCommand`, `AuthorizedPrincipalsCommandUser` | Parsed; `AuthorizedKeysAuthenticator` only reads plain `authorized_keys` files |
 | `authorized_keys` option fields (`from=`, `command=`, `environment=`, ...) | Not evaluated by `AuthorizedKeysAuthenticator` |
-| `MaxAuthTries` | Enforced by `x/crypto/ssh` |
 | `RequiredRSASize` | Not enforced |
 | `ExposeAuthInfo` | Parsed; `SSH_USER_AUTH` is not written |
 
@@ -54,20 +51,20 @@ honor the configured policy.
 | `Banner` | Read from file and sent; no token expansion |
 | `PrintMotd`, `PrintLastLog` | Parsed; no motd/lastlog is displayed |
 | `SetEnv` | Parsed; `DefaultSessionHandler` does not apply it to the child environment |
-| `AcceptEnv` | Enforced by `DefaultSessionHandler` for `env` requests |
-| `PermitTTY` | Enforced: `pty-req` is rejected when `no` |
 
 ### Forwarding
 
 | Directive | Status |
 |---|---|
+| `AllowTcpForwarding` | Enforced only as a coarse local/remote gate; actual TCP forwarding still depends on a `TcpForwarder` implementation |
+| `AllowStreamLocalForwarding` | Enforced only as a coarse local/remote gate; actual StreamLocal forwarding still depends on a `StreamLocalForwarder` implementation |
 | `GatewayPorts` (`yes`, `clientspecified`) | Parsed; `DefaultTcpForwarder` binds exactly the address the client requested without differentiating the two |
 | `PermitOpen`, `PermitListen` | Enforced via exact-string match only (no wildcards, CIDR, or port-range syntax) |
 | `StreamLocalBindMask`, `StreamLocalBindUnlink` | Parsed; not consulted (`StreamLocalForwarder` is caller-supplied) |
-| `PermitTunnel` | Parsed; no built-in `TunnelForwarder` implementation |
+| `PermitTunnel` | Only gates whether `tun@openssh.com` is rejected; no built-in `TunnelForwarder` implementation |
 | `X11Forwarding`, `X11DisplayOffset`, `X11UseLocalhost`, `XAuthLocation` | Parsed; no built-in `X11Forwarder` implementation |
 | `AllowAgentForwarding` | Parsed; no built-in `AgentForwarder` implementation |
-| `DisableForwarding` | Enforced for TCP and StreamLocal dispatch |
+| `DisableForwarding` | Enforced for TCP and StreamLocal dispatch only |
 
 ### Connection Lifetime
 
@@ -78,8 +75,6 @@ honor the configured policy.
 | `ChannelTimeout` | Parsed; no per-channel idle tracking |
 | `MaxSessions` | Parsed; no session counting |
 | `MaxStartups`, `PerSourceMaxStartups`, `PerSourceNetBlockSize`, `PerSourcePenalties`, `PerSourcePenaltyExemptList` | Parsed; no rate-limiting or penalty tracking |
-| `LoginGraceTime` | Enforced via a `SetReadDeadline` before handshake completes |
-| `TCPKeepAlive` | Applied to accepted TCP connections |
 | `IPQoS` | Parsed; no DSCP tagging |
 | `RekeyLimit` | Byte limit applied; time-based rekey not |
 
@@ -87,6 +82,7 @@ honor the configured policy.
 
 | Directive | Status |
 |---|---|
+| `LogLevel` | Parsed; internal logging does not filter or downgrade messages based on the configured level |
 | `LogVerbose` | Parsed; no per-file/function filtering |
 | `SyslogFacility` | Parsed; `pkg/logger` writes to stderr or a file, not syslog |
 | `FingerprintHash` | Parsed; internal logging does not use it |
@@ -98,14 +94,11 @@ honor the configured policy.
 | `Compression` | Parsed; `x/crypto/ssh` does not implement zlib compression |
 | `UseDNS` | Parsed; no reverse DNS lookup is performed on the client address |
 | `ModuliFile` | Parsed; `x/crypto/ssh` does not support `diffie-hellman-group-exchange-*` moduli loading |
-| `VersionAddendum` | Applied to `ssh.ServerConfig.ServerVersion` |
 
 ### Host Keys
 
 | Directive | Status |
 |---|---|
-| `HostKey` | Loaded from disk; RSA/ECDSA/Ed25519 supported |
-| `HostCertificate` | Loaded when it matches a `HostKey` (also auto-discovers `<key>-cert.pub`) |
 | `HostKeyAgent` | Parsed; no agent-backed host key implementation |
 
 ### Listening
@@ -114,7 +107,6 @@ honor the configured policy.
 |---|---|
 | `ListenAddress` with `rdomain` qualifier | Qualifier is silently stripped |
 | `RDomain` | Parsed; no Linux `rdomain(4)` binding |
-| Multiple `Port` entries | All ports are opened (matches OpenSSH) |
 
 ### Daemon
 
@@ -127,7 +119,7 @@ honor the configured policy.
 ## Extension Points
 
 Features in the tables above can be supplied externally by implementing the
-relevant interface from `pkg/server/handlers.go`:
+relevant interface from `pkg/sshserver/handlers.go`:
 
 - `PasswordAuthenticator`, `PublicKeyAuthenticator`,
   `KeyboardInteractiveAuthenticator`, `HostbasedAuthenticator`

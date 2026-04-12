@@ -22,7 +22,7 @@ Only `ed25519`, `ecdsa`, and `rsa` are supported. DSA keys (`-t dsa`) and
 | `-I cert_identity` | Certificate identity string | Not implemented |
 | `-h` | Create a host certificate (with `-s`) | Not implemented |
 | `-n principals` | Certificate principals | Not implemented |
-| `-V validity` | Certificate validity interval | Not implemented |
+| `-V validity` | Certificate validity interval | Incompatible: `ssh-keygen -V` is treated as a version flag, not certificate validity |
 | `-z serial` | Certificate serial number | Not implemented |
 | `-O option` | Certificate options / constraints | Not implemented |
 | `-L` | Print certificate contents | Not implemented |
@@ -134,6 +134,8 @@ Only `ed25519`, `ecdsa`, and `rsa` are supported. DSA keys (`-t dsa`) and
 - Key installation uses `sh -c 'cat >> ~/.ssh/authorized_keys'` via an exec
   channel. The real `ssh-copy-id` also deduplicates keys already present in
   `authorized_keys`; this implementation always appends.
+- `-f` is accepted but currently has no effect because the implementation
+  never checks whether the key is already present before appending it.
 
 ---
 
