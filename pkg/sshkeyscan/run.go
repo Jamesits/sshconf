@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/jamesits/sshconf/pkg/stdio"
 	"github.com/jamesits/sshconf/pkg/version"
@@ -62,8 +61,6 @@ func Run(cfg *Config, streams stdio.Streams) int {
 		return 0
 	}
 
-	timeout := time.Duration(cfg.Timeout) * time.Second
-
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -72,7 +69,7 @@ func Run(cfg *Config, streams stdio.Streams) int {
 			wg.Add(1)
 			go func(host, keyType string) {
 				defer wg.Done()
-				key, err := ScanHostKey(host, cfg.Port, keyType, timeout)
+				key, err := cfg.ScanHostKey(host, keyType)
 				mu.Lock()
 				defer mu.Unlock()
 				if err != nil {

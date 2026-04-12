@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -43,7 +44,7 @@ func (h *Handler) SetupForwarding(sshClient *ssh.Client, opts *sshclient.Options
 	}
 
 	for _, fwd := range opts.RemoteForward {
-		if err := h.setupRemoteForward(sshClient, fwd, bindHost); err != nil {
+		if err := h.setupRemoteForward(sshClient, opts, fwd, bindHost); err != nil {
 			h.logf("Warning: Could not set up remote forwarding %s:%s -> %s:%s: %v",
 				fwd.BindAddress, fwd.BindPort, fwd.Host, fwd.HostPort, err)
 			setErr(err)
@@ -97,7 +98,7 @@ func (h *Handler) setupLocalForward(sshClient *ssh.Client, fwd sshclient.Forward
 	return nil
 }
 
-func (h *Handler) setupRemoteForward(sshClient *ssh.Client, fwd sshclient.Forward, defaultBind string) error {
+func (h *Handler) setupRemoteForward(sshClient *ssh.Client, opts *sshclient.Options, fwd sshclient.Forward, defaultBind string) error {
 	bind := defaultBind
 	if fwd.BindAddress != "" {
 		bind = fwd.BindAddress
@@ -111,6 +112,7 @@ func (h *Handler) setupRemoteForward(sshClient *ssh.Client, fwd sshclient.Forwar
 	}
 
 	h.logf("Remote forwarding: %s -> %s", listenAddr, targetAddr)
+	dialer := opts.DialerConfig.GetDialer()
 
 	go func() {
 		for {
@@ -120,7 +122,7 @@ func (h *Handler) setupRemoteForward(sshClient *ssh.Client, fwd sshclient.Forwar
 			}
 			go func(conn net.Conn) {
 				defer conn.Close()
-				local, err := net.Dial("tcp", targetAddr)
+				local, err := dialer.DialContext(context.Background(), "tcp", targetAddr)
 				if err != nil {
 					h.logf("Failed to dial local %s: %v", targetAddr, err)
 					return

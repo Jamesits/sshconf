@@ -83,8 +83,6 @@ Only `ed25519`, `ecdsa`, and `rsa` are supported. DSA keys (`-t dsa`) and
 | `-c` | Request certificates instead of plain host keys | Not implemented |
 | `-D` | Connect via a SOCKS proxy | Not implemented |
 | `-O option` | Scanner options | Not implemented |
-| `-4` | Force IPv4 | Parsed; not enforced by dialer |
-| `-6` | Force IPv6 | Parsed; not enforced by dialer |
 
 ---
 

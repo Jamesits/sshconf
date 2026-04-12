@@ -1,6 +1,7 @@
 package sshserver
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -43,7 +44,7 @@ func (f *DefaultTcpForwarder) HandleDirectTcpIP(nc ssh.NewChannel, meta ssh.Conn
 		return nc.Reject(ssh.Prohibited, "destination not permitted")
 	}
 
-	target, err := net.Dial("tcp", dest)
+	target, err := opts.DialerConfig.GetDialer().DialContext(context.Background(), "tcp", dest)
 	if err != nil {
 		return nc.Reject(ssh.ConnectionFailed, err.Error())
 	}

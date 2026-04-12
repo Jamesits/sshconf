@@ -1,5 +1,7 @@
 package sshclient
 
+import "github.com/jamesits/sshconf/pkg/dialer"
+
 // Options holds all resolved SSH client configuration options.
 // Pointer fields distinguish "not set" (nil) from the zero value.
 // After Resolve(), all fields will be populated (defaults applied).
@@ -133,6 +135,10 @@ type Options struct {
 
 	// ignoredKeywords tracks keywords matched by IgnoreUnknown
 	ignoredKeywords map[string]bool
+
+	// DialerConfig is populated during Resolve and can be adjusted by callers
+	// before any outbound connection or forwarding action is started.
+	DialerConfig dialer.DialConfig
 }
 
 // Forward represents a port forwarding specification.

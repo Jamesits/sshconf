@@ -2,8 +2,6 @@ package sshclient
 
 import (
 	"fmt"
-	"net"
-	"strconv"
 	"time"
 
 	"github.com/jamesits/sshconf/pkg/version"
@@ -82,43 +80,6 @@ func (opts *Options) SSHClientConfig(handlers Handlers) (*ssh.ClientConfig, erro
 	}
 
 	return cfg, nil
-}
-
-// Dial establishes a network connection to the SSH server using the
-// resolved configuration. It consults handlers in the following order:
-//
-//  1. Multiplexer.CheckExisting — returns an existing multiplexed connection
-//  2. Dialer.Dial — custom connection logic (proxy, bind address, etc.)
-//  3. Default net.DialTimeout — plain TCP connection
-//
-// If a Multiplexer returns an existing client, Dial returns nil (the caller
-// should use the client returned by CheckExisting instead).
-func (opts *Options) Dial(handlers Handlers) (net.Conn, error) {
-	host := "localhost"
-	if opts.Hostname != nil {
-		host = *opts.Hostname
-	}
-	port := 22
-	if opts.Port != nil {
-		port = *opts.Port
-	}
-	addr := net.JoinHostPort(host, strconv.Itoa(port))
-
-	timeout := 0 * time.Second
-	if opts.ConnectTimeout != nil && *opts.ConnectTimeout > 0 {
-		timeout = time.Duration(*opts.ConnectTimeout) * time.Second
-	}
-
-	// Use custom dialer if provided
-	if handlers.Dialer != nil {
-		return handlers.Dialer.Dial("tcp", addr, opts)
-	}
-
-	// Default: plain TCP connection
-	if timeout > 0 {
-		return net.DialTimeout("tcp", addr, timeout)
-	}
-	return net.Dial("tcp", addr)
 }
 
 // ConfigureSession applies session-related options to an SSH session

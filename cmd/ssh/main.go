@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -200,15 +201,18 @@ func run() int {
 
 	// Dial
 	lgr.Log("VERBOSE", fmt.Sprintf("Connecting to %s port %d", *opts.Hostname, *opts.Port))
+	if opts.DialerConfig.Wrapper == nil {
+		opts.DialerConfig.Wrapper = handlers.Dialer
+	}
 
-	conn, err := opts.Dial(handlers)
+	addr := net.JoinHostPort(*opts.Hostname, strconv.Itoa(*opts.Port))
+	conn, err := opts.DialerConfig.GetDialer().DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ssh: connect to host %s port %d: %v\n", *opts.Hostname, *opts.Port, err)
 		return 255
 	}
 
 	// SSH handshake
-	addr := net.JoinHostPort(*opts.Hostname, strconv.Itoa(*opts.Port))
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, sshConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ssh: %v\n", err)

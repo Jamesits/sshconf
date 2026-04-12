@@ -126,6 +126,7 @@ func (l *Lookup) Resolve() (*Options, error) {
 
 	// Expand tokens in path-valued options.
 	expandPathTokens(opts, l)
+	opts.RefreshDialerConfig()
 
 	return opts, nil
 }

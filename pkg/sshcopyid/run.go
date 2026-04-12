@@ -1,6 +1,7 @@
 package sshcopyid
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -97,13 +98,16 @@ func Run(cfg *Config, streams stdio.TerminalStreams, lgr sshclient.Logger) int {
 		return 1
 	}
 
-	conn, err := opts.Dial(handlers)
+	addr := net.JoinHostPort(*opts.Hostname, strconv.Itoa(*opts.Port))
+	if opts.DialerConfig.Wrapper == nil {
+		opts.DialerConfig.Wrapper = handlers.Dialer
+	}
+	conn, err := opts.DialerConfig.GetDialer().DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		fmt.Fprintf(streams.Stderr, "ssh-copy-id: connect to host %s port %d: %v\n", *opts.Hostname, *opts.Port, err)
 		return 1
 	}
 
-	addr := net.JoinHostPort(*opts.Hostname, strconv.Itoa(*opts.Port))
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, sshConfig)
 	if err != nil {
 		fmt.Fprintf(streams.Stderr, "ssh-copy-id: %v\n", err)

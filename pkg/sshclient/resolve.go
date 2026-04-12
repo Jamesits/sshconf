@@ -292,6 +292,7 @@ func (l *Lookup) Resolve() (*Options, error) {
 	}
 
 	expandPathTokens(opts, tokenCtx, homeDir)
+	opts.RefreshDialerConfig()
 
 	return opts, nil
 }

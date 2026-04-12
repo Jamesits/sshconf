@@ -1,5 +1,7 @@
 package sshserver
 
+import "github.com/jamesits/sshconf/pkg/dialer"
+
 // Options holds all resolved SSH daemon configuration options.
 // Pointer fields distinguish "not set" (nil) from the zero value.
 // After Resolve(), all fields populated here will either hold a user-provided
@@ -143,6 +145,10 @@ type Options struct {
 
 	// ignoredKeywords tracks keywords matched by IgnoreUnknown
 	ignoredKeywords map[string]bool
+
+	// DialerConfig is populated during Resolve and can be adjusted by callers
+	// before any server-initiated outbound connection is started.
+	DialerConfig dialer.DialConfig
 }
 
 // Subsystem represents a subsystem definition from sshd_config.

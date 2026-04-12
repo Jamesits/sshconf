@@ -3,6 +3,7 @@ package sshclient
 import (
 	"net"
 
+	"github.com/jamesits/sshconf/pkg/dialer"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -31,9 +32,10 @@ type Handlers struct {
 
 	// --- Pre-connection ---
 
-	// Dialer establishes the TCP connection to the SSH server.
-	// When set, it is called instead of the default net.DialTimeout.
-	Dialer Dialer
+	// Dialer wraps the config-derived dialer used for the TCP connection to
+	// the SSH server. Use this to add tracing, proxies, or other transport
+	// behaviour without losing the resolved socket settings.
+	Dialer DialerWrapper
 
 	// KeyProvider supplies additional SSH signing keys from external
 	// sources such as PKCS#11 tokens or FIDO/U2F security keys.
@@ -82,9 +84,14 @@ type Handlers struct {
 	Logger Logger
 }
 
-// Dialer establishes network connections for SSH, replacing the default
-// net.DialTimeout. Implementations should consult the following options
-// from [Options]:
+// Dialer establishes network connections for SSH.
+type Dialer = dialer.Dialer
+
+// DialerWrapper wraps a config-derived SSH dialer. Implementations can
+// replace or decorate the transport while still receiving the full set of
+// resolved dialer inputs from [DialConfig].
+//
+// Relevant fields in [DialConfig]:
 //
 //   - ProxyCommand: external command whose stdio becomes the connection
 //   - ProxyJump: chain of SSH jump hosts
@@ -92,9 +99,14 @@ type Handlers struct {
 //   - BindAddress: local address to bind the outgoing connection to
 //   - BindInterface: local interface to bind to
 //   - IPQoS: DSCP values for the connection
-type Dialer interface {
-	Dial(network, addr string, opts *Options) (net.Conn, error)
-}
+type DialerWrapper = dialer.Wrapper
+
+// DialerWrapperFunc adapts a function to [DialerWrapper].
+type DialerWrapperFunc = dialer.WrapperFunc
+
+// DialConfig exposes the resolved outbound dial settings that a wrapper may
+// need when replacing or decorating the transport.
+type DialConfig = dialer.DialConfig
 
 // KeyProvider loads additional SSH signing keys from external sources.
 // The returned signers are added to the public key authentication method

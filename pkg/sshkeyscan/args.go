@@ -3,24 +3,34 @@ package sshkeyscan
 import (
 	"strconv"
 	"strings"
+
+	"github.com/jamesits/sshconf/pkg/dialer"
 )
 
 // Config holds parsed ssh-keyscan command-line arguments.
 type Config struct {
-	Hosts     []string // positional host arguments
-	HostFile  string   // -f
-	Port      int      // -p
-	Timeout   int      // -T (seconds)
-	KeyTypes  []string // -t
-	HashHosts bool     // -H
-	Verbose   bool     // -v
-	Version   bool     // -V
+	AddressFamily string   // "any", "inet", "inet6"
+	Hosts         []string // positional host arguments
+	HostFile      string   // -f
+	Port          int      // -p
+	Timeout       int      // -T (seconds)
+	KeyTypes      []string // -t
+	HashHosts     bool     // -H
+	Verbose       bool     // -v
+	Version       bool     // -V
+
+	// DialerConfig is populated during Parse and can be adjusted by callers
+	// before starting scans.
+	DialerConfig dialer.DialConfig
 }
 
 // Parse populates cfg from command-line arguments.
 // Fields set before calling Parse are preserved unless overridden.
 // Default values: Port=22, Timeout=5.
 func (cfg *Config) Parse(args ...string) error {
+	if cfg.AddressFamily == "" {
+		cfg.AddressFamily = "any"
+	}
 	if cfg.Port == 0 {
 		cfg.Port = 22
 	}
@@ -55,9 +65,9 @@ func (cfg *Config) Parse(args ...string) error {
 		case "-v":
 			cfg.Verbose = true
 		case "-4":
-			// IPv4 only — hint for dialer (not enforced in this implementation)
+			cfg.AddressFamily = "inet"
 		case "-6":
-			// IPv6 only — hint for dialer (not enforced in this implementation)
+			cfg.AddressFamily = "inet6"
 		case "-V":
 			cfg.Version = true
 		default:
@@ -66,6 +76,7 @@ func (cfg *Config) Parse(args ...string) error {
 			}
 		}
 	}
+	cfg.RefreshDialerConfig()
 	return nil
 }
 
