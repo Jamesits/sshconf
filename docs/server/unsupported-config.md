@@ -5,6 +5,26 @@ implement, only partially enforces, or handles differently from OpenSSH.
 Unless noted otherwise, affected directives are still parsed and stored on the
 resolved `Options` value so caller-supplied handlers can inspect them.
 
+## Important Runtime Caveats
+
+The default `cmd/sshd` binary wires together intentionally small reference
+components. They are useful as embedding examples, but they are not a full
+OpenSSH-equivalent runtime.
+
+- `cmd/sshd` resolves `sshd_config` once at startup and reuses that single
+  `*Options` value for every connection. `Match` criteria that depend on the
+  authenticated user, peer address, local address, local port, groups, or
+  invalid-user state therefore require a caller to re-resolve config per
+  connection; the stock daemon does not.
+- The default session path uses `DefaultSessionHandler` with
+  `ExecProcessLauncher`. That launcher runs commands in the daemon's current OS
+  user context; it does not switch uid/gid, allocate a real PTY, or enforce
+  `ChrootDirectory`. Treat it as a reference launcher for simple deployments,
+  not a safe multi-user `sshd` replacement.
+- The default auth path is also intentionally minimal: `AuthorizedKeysAuthenticator`
+  only checks plain `authorized_keys` files and `SimpleAccessController` only
+  enforces basic allow/deny user rules.
+
 ## Unsupported Or Partial Behavior
 
 The parser accepts all of the directives below, but the built-in runtime either
@@ -26,7 +46,7 @@ custom handler to honor them fully.
 | `TrustedUserCAKeys`, `RevokedKeys` | Parsed; `AuthorizedKeysAuthenticator` does not consult them |
 | `AuthorizedKeysCommand`, `AuthorizedKeysCommandUser`, `AuthorizedPrincipalsFile`, `AuthorizedPrincipalsCommand`, `AuthorizedPrincipalsCommandUser` | Parsed; `AuthorizedKeysAuthenticator` only reads plain `authorized_keys` files |
 | `authorized_keys` option fields (`from=`, `command=`, `environment=`, ...) | Not evaluated by `AuthorizedKeysAuthenticator` |
-| `RequiredRSASize` | Not enforced |
+| `RequiredRSASize` | Parsed but not enforced by the built-in public-key authenticator |
 | `ExposeAuthInfo` | Parsed; `SSH_USER_AUTH` is not written |
 
 ### Access Control
@@ -35,8 +55,8 @@ custom handler to honor them fully.
 |---|---|
 | `AllowGroups`, `DenyGroups` | Parsed; `SimpleAccessController` ignores groups |
 | `AllowUsers` / `DenyUsers` with `USER@HOST` form | Only the `USER` portion is compared |
+| `Match User`, `Match Group`, `Match Address`, `Match LocalAddress`, `Match LocalPort` | Supported by the parser/resolver, but only if the caller re-resolves options per connection. `cmd/sshd` resolves once at startup, so these criteria are effectively static there |
 | `Match Invalid-User` | Evaluated against `Lookup.InvalidUser`; caller must set the flag |
-| `Match Group` | Evaluated against `Lookup.Groups`; caller must populate it |
 | `Match RDomain` | Parsed; callers must supply the routing domain (no Linux rdomain(4) integration) |
 | `StrictModes` | Parsed; no mode/ownership checks performed on user files |
 
@@ -58,12 +78,12 @@ custom handler to honor them fully.
 |---|---|
 | `AllowTcpForwarding` | Enforced only as a coarse local/remote gate; actual TCP forwarding still depends on a `TcpForwarder` implementation |
 | `AllowStreamLocalForwarding` | Enforced only as a coarse local/remote gate; actual StreamLocal forwarding still depends on a `StreamLocalForwarder` implementation |
-| `GatewayPorts` (`yes`, `clientspecified`) | Parsed; `DefaultTcpForwarder` binds exactly the address the client requested without differentiating the two |
+| `GatewayPorts` (`no`, `yes`, `clientspecified`) | Parsed; `DefaultTcpForwarder` binds exactly the address the client requested, so the default `GatewayPorts no` behavior is not enforced |
 | `PermitOpen`, `PermitListen` | Enforced via exact-string match only (no wildcards, CIDR, or port-range syntax) |
 | `StreamLocalBindMask`, `StreamLocalBindUnlink` | Parsed; not consulted (`StreamLocalForwarder` is caller-supplied) |
 | `PermitTunnel` | Only gates whether `tun@openssh.com` is rejected; no built-in `TunnelForwarder` implementation |
-| `X11Forwarding`, `X11DisplayOffset`, `X11UseLocalhost`, `XAuthLocation` | Parsed; no built-in `X11Forwarder` implementation |
-| `AllowAgentForwarding` | Parsed; no built-in `AgentForwarder` implementation |
+| `X11Forwarding`, `X11DisplayOffset`, `X11UseLocalhost`, `XAuthLocation` | Parsed; no built-in `X11Forwarder` implementation, and `DefaultSessionHandler` does not consume `x11-req` requests |
+| `AllowAgentForwarding` | Parsed; no built-in `AgentForwarder` implementation, and `DefaultSessionHandler` does not consume `auth-agent-req@openssh.com` requests |
 | `DisableForwarding` | Enforced for TCP and StreamLocal dispatch only |
 
 ### Connection Lifetime

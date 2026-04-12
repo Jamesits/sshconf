@@ -23,7 +23,7 @@ Parse `ssh_config` into Golang SSH library so the end users don't have to write 
 - [x] `ssh-copy-id`: `pkg/sshcopyid`
 - [x] `ssh-keygen`: `pkg/sshkeygen`
 - [x] `ssh-keyscan`: `pkg/sshkeyscan`
-- [x] `sshd`: `pkg/sshserver`
+- [x] `sshd`: `pkg/sshserver` (reference implementation only, see [Unsupported Config](/docs/server/unsupported-config.md))
 
 ### Algorithms
 
