@@ -5,9 +5,9 @@ go 1.26.1
 require (
 	github.com/jcmturner/gokrb5/v8 v8.4.4
 	github.com/things-go/go-socks5 v0.1.1
-	golang.org/x/crypto v0.49.0
-	golang.org/x/sys v0.42.0
-	golang.org/x/term v0.41.0
+	golang.org/x/crypto v0.51.0
+	golang.org/x/sys v0.44.0
+	golang.org/x/term v0.43.0
 )
 
 require (
@@ -17,5 +17,5 @@ require (
 	github.com/jcmturner/gofork v1.7.6 // indirect
 	github.com/jcmturner/goidentity/v6 v6.0.1 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
-	golang.org/x/net v0.51.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 )
