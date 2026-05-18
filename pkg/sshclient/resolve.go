@@ -178,12 +178,19 @@ func (l *Lookup) Resolve() (*Options, error) {
 		if err := opts.ApplyDirective(entry.Directive); err != nil {
 			return nil, err
 		}
-		// Update match context as values are resolved
+		// Update match context as values are resolved so that later "Match
+		// user"/"Match tagged" criteria see the resolved value, mirroring
+		// OpenSSH's first-match-wins behavior for options->user etc.
+		//
+		// We intentionally do NOT mirror opts.Hostname into matchCtx.Host:
+		// the host argument used for Host/Match-host pattern matching is the
+		// command-line alias (or, on the canonical pass, the canonicalized
+		// name) - never the value substituted by a HostName directive.
+		// Updating it mid-loop would cause every directive that follows
+		// HostName in the same block to fail its enclosing Host pattern
+		// check and be silently dropped.
 		if opts.User != nil && matchCtx.User == "" {
 			matchCtx.User = *opts.User
-		}
-		if opts.Hostname != nil {
-			matchCtx.Host = *opts.Hostname
 		}
 		if opts.Tag != nil {
 			matchCtx.Tag = *opts.Tag
